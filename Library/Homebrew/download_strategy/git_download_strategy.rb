@@ -84,75 +84,13 @@ class GitDownloadStrategy < VCSDownloadStrategy
 
   private
 
+  sig { override.returns(Symbol) }
+  def fetch_home_read_exception = :git
+
   sig { override.params(sandbox: Sandbox).void }
   def allow_fetch_credentials(sandbox)
-    return unless supports_authentication?
-
-    home = Pathname(Dir.home(ENV.fetch("USER")))
-    config_home = Pathname(ENV.fetch("XDG_CONFIG_HOME", (home/".config").to_s))
-    if (global_config = ENV.fetch("GIT_CONFIG_GLOBAL", nil))
-      [Pathname(global_config)]
-    else
-      [home/".gitconfig", config_home/"git/config"]
-    end.each { |path| sandbox.allow_read_if_exists(path:) }
-
-    # Conditional includes need the repository context, even before its first clone.
-    cached_location.mkpath
-    SystemCommand.run("git", args: ["--git-dir", git_dir, "config", "--includes", "--null",
-                                    "--show-scope", "--show-origin", "--list"],
-                             env: { "HOME" => home.to_s }, print_stderr: false)
-                 .stdout.split("\0").each_slice(3) do |scope, origin, entry|
-      # Repository-local configuration must not authorise additional home access.
-      next if scope != "global" || !origin&.start_with?("file:") || !entry
-
-      path = Pathname(origin.delete_prefix("file:")).expand_path
-      sandbox.allow_read_if_exists(path:)
-      key, value = entry.split("\n", 2)
-      next if value.nil?
-
-      if key&.match?(/\Ainclude(?:if\..*)?\.path\z/)
-        # Empty include files have no entries from which Git can report their origin.
-        sandbox.allow_read_if_exists(path: Pathname(value.sub(%r{\A~/}, "#{home}/")).expand_path(path.dirname))
-      elsif !ssh? && key&.match?(/\Acredential(?:\..*)?\.helper\z/)
-        if value.match?(/\Astore(?:\s|\z)/)
-          options = value.shellsplit
-          file = options.each_with_index.filter_map do |option, index|
-            next options[index + 1] if option == "--file"
-
-            option.delete_prefix("--file=") if option.start_with?("--file=")
-          end.last
-          paths = if file
-            # Clone starts in the invocation directory; fetch runs in the cached repository.
-            [Pathname(file.sub(%r{\A~/}, "#{home}/"))
-              .expand_path(git_dir.directory? ? cached_location : Pathname.pwd)]
-          else
-            [home/".git-credentials", config_home/"git/credentials"]
-          end
-          paths.each { |store| sandbox.allow_read_if_exists(path: store) }
-        elsif value.match?(/\bgh\s+auth\s+git-credential\b/)
-          sandbox.allow_read_if_exists(path: ENV.fetch("GH_CONFIG_DIR", (config_home/"gh").to_s), type: :subpath)
-        end
-      end
-    end
-
-    return unless ssh?
-
-    sandbox.allow_read_if_exists(path: home/".ssh", type: :subpath)
-    if (socket = ENV.fetch("SSH_AUTH_SOCK", nil))
-      sandbox.allow_network(path: socket)
-    end
-  end
-
-  # Local paths and the native git:// transport do not use credentials.
-  sig { returns(T::Boolean) }
-  def supports_authentication?
-    ssh? || @url.start_with?("http://", "https://")
-  end
-
-  # Git accepts both SSH URLs and scp-style user@host:path addresses.
-  sig { returns(T::Boolean) }
-  def ssh?
-    @url.match?(%r{\A(?:(?:ssh|git\+ssh|ssh\+git)://|[^/]+:(?!//))})
+    # Let Git and SSH resolve configuration, includes, URL rewrites and agent sockets.
+    sandbox.allow_network(path: "/", type: :subpath)
   end
 
   # Read user Git config so credential helpers work for private downloads,
@@ -160,9 +98,9 @@ class GitDownloadStrategy < VCSDownloadStrategy
   sig { override.returns(T::Hash[String, String]) }
   def env
     { "GIT_TERMINAL_PROMPT" => "0" }.tap do |env|
-      if fetching? && Sandbox.isolate_operation? && supports_authentication?
+      if fetching? && Sandbox.isolate_operation?
         env["HOME"] = Dir.home(ENV.fetch("USER"))
-        if ssh? && (socket = ENV.fetch("SSH_AUTH_SOCK", nil))
+        if (socket = ENV.fetch("SSH_AUTH_SOCK", nil))
           env["SSH_AUTH_SOCK"] = socket
         end
       end

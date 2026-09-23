@@ -19,6 +19,10 @@ class Sandbox
   # Privileged groups that are expected to be able to use a working sandbox.
   PRIVILEGED_GROUPS = %w[admin staff root wheel].freeze
 
+  # Home-relative credential paths needed by Git downloads.
+  GIT_CREDENTIAL_PATHS = %w[.ssh .gitconfig .git-credentials .config/gh .netrc].freeze
+  private_constant :GIT_CREDENTIAL_PATHS
+
   # A read-only descriptor identifies Homebrew's sandbox across exec, without trusting ENV.
   INHERITANCE_FD = 198
 
@@ -209,11 +213,12 @@ class Sandbox
   end
 
   sig {
-    params(read_paths: T::Array[Pathname], write_paths: T::Array[Pathname], network_access: T::Boolean).returns(Sandbox)
+    params(read_paths: T::Array[Pathname], write_paths: T::Array[Pathname], network_access: T::Boolean,
+           home_read_exception: T.nilable(Symbol)).returns(Sandbox)
   }
-  def self.for_operation(read_paths: [], write_paths: [], network_access: false)
+  def self.for_operation(read_paths: [], write_paths: [], network_access: false, home_read_exception: nil)
     new.tap do |sandbox|
-      sandbox.deny_read_home
+      sandbox.deny_read_home(except: home_read_exception)
       sandbox.deny_all_network unless network_access
       (read_paths | write_paths).each { |path| sandbox.allow_read(path:, type: :subpath) }
       write_paths.each { |path| sandbox.allow_write_path(path) }
@@ -409,8 +414,12 @@ class Sandbox
     deny_read path:, type: :subpath
   end
 
-  sig { void }
-  def deny_read_home
+  sig { params(except: T.nilable(Symbol)).void }
+  def deny_read_home(except: nil)
+    if !except.nil? && except != :git
+      raise ArgumentError, "Unknown home credential exception: #{except.inspect}"
+    end
+
     require "trust"
 
     home = Pathname(Dir.home(ENV.fetch("USER"))).realpath
@@ -429,18 +438,17 @@ class Sandbox
       path = Pathname(path)
       [path.expand_path, (path.realpath if path.exist?)].compact
     end
-    if readable_paths.any? { |path| path.ascend.include?(home) }
-      # When Homebrew or CI needs some `$HOME` paths to stay readable, deny only
+    if except == :git || readable_paths.any? { |path| path.ascend.include?(home) }
+      # When credentials, Homebrew or CI need `$HOME` paths to stay readable, deny only
       # well-known credential and personal-data paths instead of enumerating all
       # of `$HOME`.
       [
-        ".ssh",
+        *GIT_CREDENTIAL_PATHS,
         ".aws",
         ".azure",
         ".boto",
         ".docker",
         ".config/fish",
-        ".config/gh",
         ".config/gcloud",
         ".config/huggingface",
         ".config/pip",
@@ -450,11 +458,8 @@ class Sandbox
         ".config/composer/auth.json",
         ".config/sops/age/keys.txt",
         ".gnupg",
-        ".git-credentials",
-        ".gitconfig",
         ".gsutil",
         ".kube",
-        ".netrc",
         ".npmrc",
         ".yarnrc",
         ".yarnrc.yml",
@@ -509,6 +514,8 @@ class Sandbox
         "Google Drive",
         "OneDrive",
       ].each do |path|
+        next if except == :git && GIT_CREDENTIAL_PATHS.include?(path)
+
         path = home/path
         next unless path.exist?
 

@@ -87,7 +87,8 @@ class VCSDownloadStrategy < AbstractDownloadStrategy
       raise "VCS download path is a symlink: #{cached_location}"
     end
 
-    Sandbox.for_operation(write_paths: [sandbox_write_path], network_access: fetching?).tap do |sandbox|
+    Sandbox.for_operation(write_paths: [sandbox_write_path], network_access: fetching?,
+                          home_read_exception: (fetch_home_read_exception if fetching?)).tap do |sandbox|
       allow_fetch_credentials(sandbox) if fetching?
     end
   end
@@ -104,6 +105,9 @@ class VCSDownloadStrategy < AbstractDownloadStrategy
   end
 
   private
+
+  sig { overridable.returns(T.nilable(Symbol)) }
+  def fetch_home_read_exception = nil
 
   sig { overridable.params(sandbox: Sandbox).void }
   def allow_fetch_credentials(sandbox); end
