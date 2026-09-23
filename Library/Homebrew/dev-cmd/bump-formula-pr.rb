@@ -9,6 +9,7 @@ require "fileutils"
 require "formula"
 require "livecheck/livecheck"
 require "utils/tar"
+require "utils/github/patch_inclusion"
 
 module Homebrew
   module DevCmd
@@ -171,6 +172,7 @@ module Homebrew
         return if all_formulae.empty?
 
         added_release_info = Set.new
+        patch_inclusion = GitHub::PatchInclusion.new
 
         commits = all_formulae.filter_map do |formula_name|
           commit_formula = Formula[formula_name]
@@ -186,7 +188,6 @@ module Homebrew
 
           check_new_version(commit_formula, tap_remote_repo, version: new_version) if new_version.present?
 
-          opoo "This formula has patches that may be resolved upstream." if commit_formula.patchlist.present?
           if commit_formula.resources.any? { |resource| !resource.name.start_with?("homebrew-") }
             opoo "This formula has resources that may need to be updated."
           end
@@ -301,22 +302,45 @@ module Homebrew
           end
           formula_ast.add_stable_stanzas_after(:url, stanzas_to_add) if stanzas_to_add.present?
           new_contents = formula_ast.process
-          commit_formula.path.atomic_write(new_contents) unless args.dry_run?
 
           new_formula_version = formula_version(commit_formula, new_contents)
 
           if new_formula_version < old_formula_version
-            commit_formula.path.atomic_write(old_contents) unless args.dry_run?
             odie <<~EOS
               You need to bump this formula manually since changing the version
               from #{old_formula_version} to #{new_formula_version} would be a downgrade.
             EOS
           elsif new_formula_version == old_formula_version
-            commit_formula.path.atomic_write(old_contents) unless args.dry_run?
             odie <<~EOS
               You need to bump this formula manually since the new version
               and old version are both #{new_formula_version}.
             EOS
+          end
+
+          unless patch_source_ambiguous?(formula_ast)
+            formula_ast.remove_patches do |patch_node|
+              patches_for_removal(patch_node) do |patch_urls|
+                reasons = patch_urls.to_h do |patch_url|
+                  [patch_url, patch_inclusion.removal_reason(patch_url, source_url: new_url || old_url,
+                                                                      tag: new_tag, revision: new_revision)]
+                end
+                next false if reasons.value?(nil)
+
+                reasons.each do |patch_url, reason|
+                  ohai "#{args.dry_run? ? "Would remove" : "Removing"} patch: #{patch_url}"
+                  puts reason
+                  formula_pr_message += "\n\n#{reason}"
+                end
+                true
+              end
+            end
+            new_contents = formula_ast.process
+          end
+          commit_formula.path.atomic_write(new_contents) unless args.dry_run?
+
+          if Utils::AST::FormulaAST.new(new_contents).contains_call?(:patch)
+            opoo "This formula has patches that may be resolved upstream."
+            formula_pr_message += "\n\n- [ ] `patch` blocks have been checked."
           end
 
           alias_rename = alias_update_pair(commit_formula, new_formula_version)
@@ -510,6 +534,77 @@ module Homebrew
         end
       end
 
+      # Whether platform or conditional source declarations prevent checking patches against one release.
+      sig { params(formula_ast: Utils::AST::FormulaAST).returns(T::Boolean) }
+      def patch_source_ambiguous?(formula_ast)
+        patch_scope_nodes(formula_ast.children).any? do |node|
+          if node.is_a?(Utils::AST::SendNode)
+            node.method_name == :url && node.each_ancestor(:block).any? do |parent|
+              Utils::AST::FormulaAST::PATCH_PLATFORM_BLOCKS.include?(parent.method_name)
+            end
+          elsif !node.is_a?(Utils::AST::BlockNode) && !node.def_type? && !node.defs_type?
+            node.each_descendant(:send).any? do |call|
+              call.method_name == :url && call.each_ancestor(:block).all? do |parent|
+                [:stable, *Utils::AST::FormulaAST::PATCH_PLATFORM_BLOCKS].include?(parent.method_name)
+              end
+            end
+          end
+        end
+      end
+
+      # Selects whole patches or independent platform branches containing only supported declarations.
+      # The caller must return true only when every URL yielded together is included in the release.
+      sig {
+        params(node: Utils::AST::BlockNode, block: T.proc.params(urls: T::Array[String]).returns(T::Boolean))
+          .returns(T::Array[Utils::AST::BlockNode])
+      }
+      def patches_for_removal(node, &block)
+        platform_blocks = Utils::AST::FormulaAST::PATCH_PLATFORM_BLOCKS
+        return [] unless node.each_ancestor.all? do |parent|
+          parent.class_type? || parent.begin_type? ||
+          (parent.is_a?(Utils::AST::BlockNode) && parent.send_node.receiver.nil? &&
+           [:patch, :stable, *platform_blocks].include?(parent.method_name))
+        end
+        return [] unless node.arguments.empty?
+
+        if node.method_name == :patch && (arguments = node.send_node.arguments).present?
+          strip = Utils::AST.literal_value(arguments.first)
+          return [] if arguments.length != 1 || !strip.is_a?(Symbol) || !strip.to_s.match?(/\Ap\d+\z/)
+        end
+
+        children = Utils::AST.body_children(node.body)
+        calls = patch_scope_nodes(children)
+        unsupported_calls = calls.reject do |call|
+          case call
+          when Utils::AST::SendNode
+            call.receiver.nil? && [:url, :sha256, :directory, :type, :resolves].include?(call.method_name)
+          when Utils::AST::BlockNode
+            call.send_node.receiver.nil? && call.arguments.empty? && platform_blocks.include?(call.method_name)
+          end
+        end
+
+        if unsupported_calls.empty?
+          urls = calls.grep(Utils::AST::SendNode).select { |call| call.method_name == :url }.map do |call|
+            value = call.first_argument
+            value.str_content if call.arguments.length == 1 && value&.str_type?
+          end
+          return [node] if urls.present? && urls.none?(&:nil?) && yield(urls.compact.uniq)
+        end
+
+        return [] if children.any? do |child|
+          unsupported_calls.include?(child) || (child.is_a?(Utils::AST::SendNode) && child.method_name == :url)
+        end
+
+        branches = children.grep(Utils::AST::BlockNode)
+        if branches.length > 1
+          # Only split disjoint OS or architecture pairs.
+          return [] unless branches.all? { |branch| branch.send_node.arguments.empty? }
+          return [] unless [[:on_linux, :on_macos], [:on_arm, :on_intel]].include?(branches.map(&:method_name).sort)
+        end
+
+        branches.flat_map { |branch| patches_for_removal(branch, &block) }
+      end
+
       sig { params(formula: Formula, new_version: String).void }
       def check_throttle(formula, new_version)
         tap = formula.tap
@@ -594,6 +689,18 @@ module Homebrew
       end
 
       private
+
+      sig { params(nodes: T::Array[Utils::AST::Node]).returns(T::Array[Utils::AST::Node]) }
+      def patch_scope_nodes(nodes)
+        nodes.flat_map do |node|
+          if node.is_a?(Utils::AST::BlockNode) && node.send_node.receiver.nil? &&
+             [:stable, *Utils::AST::FormulaAST::PATCH_PLATFORM_BLOCKS].include?(node.method_name)
+            [node, *patch_scope_nodes(Utils::AST.body_children(node.body))]
+          else
+            [node]
+          end
+        end
+      end
 
       sig { params(url: String).returns(T.nilable(String)) }
       def determine_mirror(url)
@@ -878,7 +985,7 @@ module Homebrew
           else
             ohai "brew audit #{formula.path.basename}"
           end
-          return true
+          return false
         end
         if alias_rename && (source = alias_rename.first) && (destination = alias_rename.last)
           FileUtils.mv source, destination

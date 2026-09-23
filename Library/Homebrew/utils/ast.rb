@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "ast_constants"
+require "on_system"
 require "rubocop-ast"
 require "rubocops/cask/constants/stanza"
 
@@ -91,7 +92,18 @@ module Utils
       extend Forwardable
       include AST
 
+      PATCH_PLATFORM_BLOCKS = T.let(
+        [*OnSystem::ARCH_OPTIONS, *OnSystem::BASE_OS_OPTIONS, *MacOSVersion::SYMBOLS.keys, :system].map do |name|
+          :"on_#{name}"
+        end.freeze,
+        T::Array[Symbol],
+      )
+
       delegate process: :tree_rewriter
+
+      # Top-level nodes in the formula body.
+      sig { returns(T::Array[Node]) }
+      attr_reader :children
 
       sig { params(formula_contents: String).void }
       def initialize(formula_contents)
@@ -270,6 +282,39 @@ module Utils
         remove_stanza_node(stanza_node)
       end
 
+      # Yields patch blocks in all scopes; the caller returns patches or branches to remove.
+      # Removes platform wrappers emptied by patch removal, including their comments.
+      sig { params(block: T.proc.params(node: BlockNode).returns(T::Array[BlockNode])).void }
+      def remove_patches(&block)
+        nodes = children.flat_map { |node| node.each_node(:block).to_a }.grep(BlockNode)
+        removals = nodes.flat_map do |node|
+          next [] if node.method_name != :patch || node.send_node.receiver
+
+          yield(node)
+        end
+
+        nodes.reverse_each do |node|
+          next if node.send_node.receiver
+          next unless PATCH_PLATFORM_BLOCKS.include?(node.method_name)
+          next if node.body.nil?
+          next unless body_children(node.body).all? { |child| removals.any? { |removal| removal.equal?(child) } }
+
+          removals.reject! { |removal| node.source_range.contains?(removal.source_range) }
+          removals << node
+        end
+        removals.each { |node| remove_stanza_node(node) }
+      end
+
+      # Finds DSL calls regardless of their platform or enclosing scope.
+      sig { params(name: Symbol).returns(T::Boolean) }
+      def contains_call?(name)
+        children.any? do |node|
+          node.each_node(:send).any? do |call|
+            call.method_name == name && call.receiver.nil?
+          end
+        end
+      end
+
       sig { params(name: Symbol, replacement: T.any(Numeric, String, Symbol), type: T.nilable(Symbol)).void }
       def replace_stanza(name, replacement, type: nil)
         stanza_node = stanza(name, type:)
@@ -320,9 +365,6 @@ module Utils
 
       sig { returns(ProcessedSource) }
       attr_reader :processed_source
-
-      sig { returns(T::Array[Node]) }
-      attr_reader :children
 
       sig { returns(TreeRewriter) }
       attr_reader :tree_rewriter

@@ -33,6 +33,90 @@ RSpec.describe Homebrew::DevCmd::BumpFormulaPr do
   end
 
   describe "#run" do
+    context "when the formula has patches" do
+      let(:formula_path) { CoreTap.instance.new_formula_path("patchball") }
+      let(:patch_url) { "https://github.com/example/project/commit/#{"a" * 40}.patch" }
+      let(:other_url) { "https://github.com/example/project/commit/#{"d" * 40}.patch" }
+      let(:patch_inclusion) { instance_double(GitHub::PatchInclusion) }
+      let(:source_url) { "https://github.com/example/project/archive/v2.0.tar.gz" }
+      let(:options) { ["--write-only"] }
+      let(:command) do
+        described_class.new([*options, "--no-audit", "--url=#{source_url}", "--sha256=#{"b" * 64}", "patchball"])
+      end
+
+      before do
+        formula_path.dirname.mkpath
+        formula_path.write <<~RUBY
+          class Patchball < Formula
+            url "https://github.com/example/project/archive/v1.0.tar.gz"
+            sha256 "#{"a" * 64}"
+
+            # Backport a build fix.
+            patch do
+              url "#{patch_url}"
+              sha256 "#{"c" * 64}"
+            end
+
+            patch do
+              url "#{other_url}"
+              sha256 "#{"e" * 64}"
+            end
+          end
+        RUBY
+        formula = Formulary.from_contents("patchball", formula_path, formula_path.read)
+        allow(Utils::GemSetup).to receive(:install_bundler_gems!)
+        allow(CoreTap.instance).to receive_messages(allow_bump?: true, git?: true,
+                                                    remote_repository: "Homebrew/homebrew-core")
+        allow(command).to receive_messages(check_new_version: nil, check_pull_requests: nil,
+                                           update_matching_version_resources!: {})
+        allow(PyPI).to receive(:update_python_resources!)
+        allow(command.args.named).to receive(:to_formulae).and_return([formula])
+        allow(Formula).to receive(:[]).with("patchball").and_return(formula)
+        allow(GitHub).to receive(:too_many_open_prs?).and_return(false)
+        allow(GitHub::PatchInclusion).to receive(:new).and_return(patch_inclusion)
+        allow(patch_inclusion).to receive(:removal_reason)
+          .with(patch_url, source_url:, tag: nil, revision: nil).and_return("Patch inclusion evidence.")
+        allow(patch_inclusion).to receive(:removal_reason)
+          .with(other_url, source_url:, tag: nil, revision: nil).and_return(nil)
+        allow(Homebrew::Bump).to receive(:create_pr)
+      end
+
+      it "writes the version bump, removes incorporated patches and retains unverified patches" do
+        command.run
+
+        expect(formula_path.read).to include(source_url, other_url)
+        expect(formula_path.read).not_to include(patch_url)
+      end
+
+      context "with a dry run" do
+        let(:options) { ["--dry-run"] }
+
+        it "reports the removal without changing the formula" do
+          original = formula_path.read
+
+          expect(Homebrew::Bump).to receive(:create_pr).with(
+            have_attributes(pr_message: include("Patch inclusion evidence.", "`patch` blocks have been checked.")),
+            dry_run: true, no_fork: false, fork_org: nil, commit: false,
+          )
+
+          expect { command.run }.to output(/Would remove patch/).to_stdout
+          expect(formula_path.read).to eq(original)
+        end
+      end
+
+      context "when audit fails" do
+        let(:options) { [] }
+
+        it "restores both the original version and its patch" do
+          original = formula_path.read
+          allow(command).to receive(:run_audit).and_return(true)
+
+          expect { command.run }.to raise_error(SystemExit)
+          expect(formula_path.read).to eq(original)
+        end
+      end
+    end
+
     it "updates a formula disabled only on the current arch" do
       formula_path = CoreTap.instance.new_formula_path("test")
       formula_path.dirname.mkpath
@@ -182,6 +266,129 @@ RSpec.describe Homebrew::DevCmd::BumpFormulaPr do
       # Substituting the version into the URL makes the formula invalid, so the
       # run cannot finish; this example covers how the stanza value is rendered.
       expect { command.run }.to raise_error(FormulaValidationError)
+    end
+  end
+
+  describe "#patches_for_removal" do
+    subject(:remaining_source) do
+      ast = Utils::AST::FormulaAST.new(formula_contents)
+      ast.remove_patches do |node|
+        bump_formula_pr.patches_for_removal(node) { |urls| (urls - included_urls).empty? }
+      end
+      ast.process
+    end
+
+    let(:patch_url) { "https://github.com/example/project/commit/#{"a" * 40}.patch" }
+    let(:included_urls) { [patch_url] }
+    let(:patch) do
+      <<~RUBY.chomp
+        patch do
+          url "#{patch_url}"
+          sha256 "#{"b" * 64}"
+        end
+      RUBY
+    end
+    let(:formula_contents) { "class Foo < Formula\n#{patch}\nend\n" }
+
+    context "with platform blocks inside a patch" do
+      let(:formula_contents) do
+        <<~RUBY
+          class Foo < Formula
+            patch :p2 do
+              directory "src"
+              on_linux do
+                on_intel do
+                  url "#{patch_url}"
+                  sha256 "#{"b" * 64}"
+                  type :backport
+                  resolves "https://github.com/example/project/pull/" + "1"
+                end
+              end
+            end
+          end
+        RUBY
+      end
+
+      it "removes a patch with a strip level and directory without evaluating annotations" do
+        expect(remaining_source).to eq("class Foo < Formula\nend\n")
+      end
+    end
+
+    it "retains patches in HEAD, resources and Ruby conditionals" do
+      expect(["head do", 'resource "foo" do', "if OS.linux?"].map do |opening|
+        source = "class Foo < Formula\n#{opening}\n#{patch}\nend\nend\n"
+        node = Utils::AST.process_source(source).last.each_node(:block).find { |block| block.method_name == :patch }
+        bump_formula_pr.patches_for_removal(node) { true }
+      end).to all(be_empty)
+    end
+
+    context "with separate platform patches" do
+      let(:other_url) { "https://github.com/example/project/commit/#{"c" * 40}.patch" }
+      let(:left_branch) { "on_macos do\nurl '#{patch_url}'\nsha256 '#{"b" * 64}'\nend\n" }
+      let(:right_branch) { "on_linux do\nurl '#{other_url}'\nsha256 '#{"d" * 64}'\nend\n" }
+      let(:patch) { "patch do\n#{left_branch}#{right_branch}end" }
+
+      context "with a local macOS patch" do
+        let(:left_branch) { "on_macos do\nfile 'Patches/foo/mac.patch'\nend\n" }
+        let(:included_urls) { [other_url] }
+
+        it "removes the incorporated Linux patch and preserves the local patch" do
+          expect(remaining_source).to eq(formula_contents.sub(right_branch, ""))
+        end
+      end
+
+      context "when all patches are included" do
+        let(:included_urls) { [patch_url, other_url] }
+
+        it "removes the whole patch block" do
+          expect(remaining_source).to eq("class Foo < Formula\nend\n")
+        end
+      end
+
+      context "with nested architecture alternatives" do
+        let(:arm_branch) { "on_arm do\nurl '#{patch_url}'\nsha256 '#{"b" * 64}'\nend\n" }
+        let(:left_branch) do
+          "on_macos do\n#{arm_branch}on_intel do\nurl '#{other_url}'\nsha256 '#{"d" * 64}'\nend\nend\n"
+        end
+
+        it "removes only the incorporated architecture branch" do
+          expect(remaining_source).to eq(formula_contents.sub(arm_branch, ""))
+        end
+      end
+
+      it "retains defaults and overlapping platform conditions" do
+        expect(["url '#{patch_url}'", "on_arm do\nurl '#{patch_url}'\nend"].map do |default|
+          ast = Utils::AST::FormulaAST.new("class Foo < Formula\npatch do\n#{default}\n#{right_branch}end\nend\n")
+          node = ast.children.first
+          bump_formula_pr.patches_for_removal(node) { |urls| urls == [other_url] }
+        end).to all(be_empty)
+      end
+    end
+  end
+
+  describe "#patch_source_ambiguous?" do
+    it "ignores URLs in conditional resources" do
+      ast = Utils::AST::FormulaAST.new <<~RUBY
+        class Foo < Formula
+          url "https://example.com/foo.tar.gz"
+
+          if OS.linux?
+            resource "helper" do
+              url "https://example.com/helper.tar.gz"
+            end
+          end
+        end
+      RUBY
+
+      expect(bump_formula_pr.patch_source_ambiguous?(ast)).to be(false)
+    end
+
+    it "rejects platform-specific or conditional source overrides" do
+      expect(["on_linux do", "if OS.linux?"].map do |opening|
+        ast = Utils::AST::FormulaAST.new("class Foo < Formula\nurl 'https://example.com/foo.tar.gz'\n" \
+                                         "#{opening}\nurl 'https://example.com/linux.tar.gz'\nend\nend\n")
+        bump_formula_pr.patch_source_ambiguous?(ast)
+      end).to all(be(true))
     end
   end
 
