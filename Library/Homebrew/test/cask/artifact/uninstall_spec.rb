@@ -215,6 +215,30 @@ RSpec.describe Cask::Artifact::Uninstall, :cask do
     before do
       allow(User.current).to receive(:gui?).and_return(true)
       allow(artifact).to receive(:sleep).with(3)
+      allow(Cask::Artifact::AbstractUninstall).to receive(:owner_uid).and_return(Process.uid)
+    end
+
+    it "does not signal processes owned by other users" do
+      allow(artifact).to receive(:running_bundle_ids).and_return(["my.fancy.package"])
+      allow(artifact).to receive(:running_processes).with("my.fancy.package")
+                                                    .and_return([[123, 0, "my.fancy.package"],
+                                                                 [456, 0, "my.fancy.package"]])
+      allow(Cask::Artifact::AbstractUninstall).to receive(:owner_uid).with(123).and_return(Process.uid + 1)
+
+      expect(Process).to receive(:kill).with("TERM", 456)
+
+      artifact.uninstall_phase(command: fake_system_command)
+    end
+
+    it "does not signal processes whose owner cannot be determined" do
+      allow(artifact).to receive(:running_bundle_ids).and_return(["my.fancy.package"])
+      allow(artifact).to receive(:running_processes).with("my.fancy.package")
+                                                    .and_return([[123, 0, "my.fancy.package"]])
+      allow(Cask::Artifact::AbstractUninstall).to receive(:owner_uid).with(123).and_return(nil)
+
+      expect(Process).not_to receive(:kill)
+
+      artifact.uninstall_phase(command: fake_system_command)
     end
 
     it "does not signal the application hosting the `brew` process" do
