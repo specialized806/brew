@@ -37,6 +37,53 @@ RSpec.describe "Bash" do
     end
   end
 
+  test_each(%w[formulae casks]) do |command|
+    describe "brew #{command}" do
+      before do
+        ENV["HOMEBREW_LIBRARY"] = HOMEBREW_LIBRARY_PATH.parent.to_s
+        ENV["HOMEBREW_NO_REQUIRE_TAP_TRUST"] = nil
+      end
+
+      it "skips the Bash fast path when Ruby is required" do
+        ENV["HOMEBREW_FORCE_RUBY_COMMAND"] = "1"
+        stdout, stderr, status = Open3.capture3(
+          "/bin/bash", "-c", <<~BASH, "bash", command
+            source() {
+              case "$1" in
+                */cmd/formulae.sh | */cmd/casks.sh) echo 'Bash fast path'; exit 1 ;;
+                */help.sh) echo 'Ruby fallback'; exit 0 ;;
+                *) builtin source "$@" ;;
+              esac
+            }
+            source "${HOMEBREW_LIBRARY}/Homebrew/brew.sh" "$1"
+          BASH
+        )
+
+        expect([stdout, stderr, status.success?]).to eq(["Ruby fallback\n", "", true])
+      end
+
+      it "does not fall back to Ruby when the output pipe closes" do
+        cache = mktmpdir
+        ENV["HOMEBREW_NO_INSTALL_FROM_API"] = nil
+        ENV["HOMEBREW_CACHE"] = cache.to_s
+        (cache/"api").mkpath
+        (cache/"api/#{(command == "formulae") ? "formula" : "cask"}_names.txt")
+          .write((1..10_000).map { |i| format("item%05d\n", i) }.join)
+
+        stdout, stderr, status = Open3.capture3(
+          "/bin/bash", "-c", <<~BASH, "bash", command
+            source "${HOMEBREW_LIBRARY}/Homebrew/cmd/$1.sh"
+            homebrew-trusted-items() { return 0; }
+            HOMEBREW_BREW_FILE=/usr/bin/false
+            "homebrew-$1" | head -n 1
+          BASH
+        )
+
+        expect([stdout, stderr, status.success?]).to eq(["\n", "", true])
+      end
+    end
+  end
+
   describe "setup-locale" do
     it "uses the macOS locale charmap rather than the locale name", :needs_macos do
       setup_locale = [
