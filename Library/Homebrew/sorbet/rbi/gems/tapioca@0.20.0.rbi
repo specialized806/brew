@@ -104,6 +104,9 @@ end
 class RBI::TypedParam < ::T::Struct
   const :param, ::RBI::Param
   const :type, ::String
+
+  sig { returns(::RBI::SigParam) }
+  def to_sig_param; end
 end
 
 module T::Generic
@@ -257,6 +260,7 @@ end
 module Tapioca::Commands; end
 
 class Tapioca::Commands::AbstractDsl < ::Tapioca::Commands::CommandWithoutTracker
+  include ::Tapioca::FileHelper
   include ::Tapioca::SorbetHelper
   include ::Tapioca::RBIFilesHelper
 
@@ -281,17 +285,21 @@ class Tapioca::Commands::AbstractDsl < ::Tapioca::Commands::CommandWithoutTracke
       app_root: ::String,
       halt_upon_load_error: T::Boolean,
       compiler_options: T::Hash[::String, T.untyped],
-      lsp_addon: T::Boolean
+      lsp_addon: T::Boolean,
+      max_diff_lines: ::Integer
     ).void
   end
-  def initialize(requested_constants:, requested_paths:, outpath:, only:, exclude:, file_header:, tapioca_path:, skip_constant: T.unsafe(nil), quiet: T.unsafe(nil), verbose: T.unsafe(nil), number_of_workers: T.unsafe(nil), auto_strictness: T.unsafe(nil), gem_dir: T.unsafe(nil), rbi_formatter: T.unsafe(nil), app_root: T.unsafe(nil), halt_upon_load_error: T.unsafe(nil), compiler_options: T.unsafe(nil), lsp_addon: T.unsafe(nil)); end
+  def initialize(requested_constants:, requested_paths:, outpath:, only:, exclude:, file_header:, tapioca_path:, skip_constant: T.unsafe(nil), quiet: T.unsafe(nil), verbose: T.unsafe(nil), number_of_workers: T.unsafe(nil), auto_strictness: T.unsafe(nil), gem_dir: T.unsafe(nil), rbi_formatter: T.unsafe(nil), app_root: T.unsafe(nil), halt_upon_load_error: T.unsafe(nil), compiler_options: T.unsafe(nil), lsp_addon: T.unsafe(nil), max_diff_lines: T.unsafe(nil)); end
 
   private
 
   sig { returns(T::Array[::String]) }
   def all_requested_constants; end
 
-  sig { params(cause: ::Symbol, files: T::Array[::String]).returns(::String) }
+  sig { params(diff: T::Hash[::Pathname, ::Symbol], tmp_dir: ::Pathname).returns([::String, T::Boolean]) }
+  def build_diff_output(diff, tmp_dir); end
+
+  sig { params(cause: ::Symbol, files: T::Array[::Pathname]).returns(::String) }
   def build_error_for_files(cause, files); end
 
   sig do
@@ -351,8 +359,8 @@ class Tapioca::Commands::AbstractDsl < ::Tapioca::Commands::CommandWithoutTracke
   sig { params(path: ::Pathname).returns(T::Array[::Pathname]) }
   def rbi_files_in(path); end
 
-  sig { params(diff: T::Hash[::String, ::Symbol], command: ::Symbol).void }
-  def report_diff_and_exit_if_out_of_date(diff, command); end
+  sig { params(diff: T::Hash[::Pathname, ::Symbol], tmp_dir: ::Pathname, command: ::Symbol).void }
+  def report_diff_and_exit_if_out_of_date(diff, tmp_dir:, command:); end
 
   sig { params(name: ::String).returns(T.nilable(T.class_of(Tapioca::Dsl::Compiler))) }
   def resolve(name); end
@@ -360,7 +368,7 @@ class Tapioca::Commands::AbstractDsl < ::Tapioca::Commands::CommandWithoutTracke
   sig { params(class_name: ::String).returns(::String) }
   def underscore(class_name); end
 
-  sig { params(tmp_dir: ::Pathname).returns(T::Hash[::String, ::Symbol]) }
+  sig { params(tmp_dir: ::Pathname).returns(T::Hash[::Pathname, ::Symbol]) }
   def verify_dsl_rbi(tmp_dir:); end
 end
 
@@ -621,9 +629,6 @@ class Tapioca::Commands::DslCompilerList < ::Tapioca::Commands::AbstractDsl
 end
 
 class Tapioca::Commands::DslGenerate < ::Tapioca::Commands::AbstractDsl
-  sig { params(only_bootsnap_rbs_cache: T::Boolean, kwargs: T.untyped).void }
-  def initialize(only_bootsnap_rbs_cache: T.unsafe(nil), **kwargs); end
-
   private
 
   sig { override.void }
@@ -771,6 +776,7 @@ Tapioca::DEFAULT_ANNOTATIONS_DIR = T.let(T.unsafe(nil), String)
 Tapioca::DEFAULT_DSL_DIR = T.let(T.unsafe(nil), String)
 Tapioca::DEFAULT_ENVIRONMENT = T.let(T.unsafe(nil), String)
 Tapioca::DEFAULT_GEM_DIR = T.let(T.unsafe(nil), String)
+Tapioca::DEFAULT_MAX_DIFF_LINES = T.let(T.unsafe(nil), Integer)
 Tapioca::DEFAULT_OVERRIDES = T.let(T.unsafe(nil), Hash)
 Tapioca::DEFAULT_POSTREQUIRE_FILE = T.let(T.unsafe(nil), String)
 Tapioca::DEFAULT_RBI_DIR = T.let(T.unsafe(nil), String)
@@ -856,6 +862,9 @@ class Tapioca::Dsl::Compiler
 
     sig { returns(T::Enumerable[T::Module[T.anything]]) }
     def all_modules; end
+
+    sig { params(mod: T::Module[T.anything]).returns(T::Boolean) }
+    def deprecated_constant_proxy?(mod); end
 
     sig do
       type_parameters(:U)
@@ -981,6 +990,25 @@ class Tapioca::Executor
 end
 
 Tapioca::Executor::MINIMUM_ITEMS_PER_WORKER = T.let(T.unsafe(nil), Integer)
+
+module Tapioca::FileHelper
+  sig do
+    params(
+      filename: ::Pathname,
+      old_path: T.any(::Pathname, ::String),
+      new_path: T.any(::Pathname, ::String)
+    ).returns(T.nilable(::String))
+  end
+  def file_diff(filename, old_path, new_path); end
+
+  private
+
+  sig { params(message: ::String).void }
+  def error_msg(message); end
+end
+
+Tapioca::FileHelper::CLEAR = T.let(T.unsafe(nil), String)
+Tapioca::FileHelper::RED = T.let(T.unsafe(nil), String)
 module Tapioca::Gem; end
 
 class Tapioca::Gem::ConstNodeAdded < ::Tapioca::Gem::NodeAdded
@@ -1045,6 +1073,9 @@ class Tapioca::Gem::Listeners::Documentation < ::Tapioca::Gem::Listeners::Base
 
   private
 
+  sig { params(definition: ::Rubydex::Definition).returns(T::Array[::String]) }
+  def comment_lines(definition); end
+
   sig { params(name: ::String, sigs: T::Array[::RBI::Sig]).returns(T::Array[::RBI::Comment]) }
   def documentation_comments(name, sigs: T.unsafe(nil)); end
 
@@ -1100,6 +1131,18 @@ class Tapioca::Gem::Listeners::Methods < ::Tapioca::Gem::Listeners::Base
 
   private
 
+  sig { params(method: ::UnboundMethod, constant: T::Module[T.anything]).returns(T.nilable(::UnboundMethod)) }
+  def attr_reader_for_writer(method, constant); end
+
+  sig do
+    params(
+      writer_method: ::UnboundMethod,
+      reader_method: ::UnboundMethod,
+      reader_signature: T.untyped
+    ).returns(T.untyped)
+  end
+  def build_attr_writer_signature(writer_method, reader_method, reader_signature); end
+
   sig do
     params(
       tree: ::RBI::Tree,
@@ -1125,6 +1168,9 @@ class Tapioca::Gem::Listeners::Methods < ::Tapioca::Gem::Listeners::Base
   sig { override.params(event: ::Tapioca::Gem::NodeAdded).returns(T::Boolean) }
   def ignore?(event); end
 
+  sig { params(method: ::UnboundMethod, constant: T::Module[T.anything]).returns(T.untyped) }
+  def inferred_attr_writer_signature(method, constant); end
+
   sig { params(constant: T::Module[T.anything]).returns(T.nilable(::UnboundMethod)) }
   def initialize_method_for(constant); end
 
@@ -1144,6 +1190,12 @@ class Tapioca::Gem::Listeners::Methods < ::Tapioca::Gem::Listeners::Base
 
   sig { override.params(event: ::Tapioca::Gem::ScopeNodeAdded).void }
   def on_scope(event); end
+
+  sig { params(method: ::UnboundMethod).returns(::UnboundMethod) }
+  def original_method(method); end
+
+  sig { params(method: ::UnboundMethod, other_method: ::UnboundMethod).returns(T::Boolean) }
+  def same_source_location?(method, other_method); end
 
   sig { params(constant: T::Module[T.anything], method_name: ::String).returns(T::Boolean) }
   def struct_method?(constant, method_name); end
@@ -1568,6 +1620,9 @@ class Tapioca::Gemfile
   sig { returns(T::Array[::Tapioca::Gemfile::GemSpec]) }
   def dependencies; end
 
+  sig { params(path: ::String).returns(T::Boolean) }
+  def excluded_gem_path?(path); end
+
   sig { params(gem_name: ::String).returns(T.nilable(::Tapioca::Gemfile::GemSpec)) }
   def gem(gem_name); end
 
@@ -1581,6 +1636,9 @@ class Tapioca::Gemfile
 
   sig { returns(::String) }
   def dir; end
+
+  sig { returns(T::Array[::Tapioca::Gemfile::GemSpec]) }
+  def excluded_gem_specs; end
 
   sig { returns(::File) }
   def gemfile; end
@@ -1770,6 +1828,19 @@ class Tapioca::Loaders::Gem < ::Tapioca::Loaders::Loader
   sig { params(file: ::String, error: ::LoadError).void }
   def explain_failed_require(file, error); end
 
+  sig do
+    params(
+      gemfile: ::Tapioca::Gemfile,
+      initialize_file: T.nilable(::String),
+      require_file: T.nilable(::String),
+      halt_upon_load_error: T::Boolean
+    ).void
+  end
+  def load_bundle(gemfile, initialize_file, require_file, halt_upon_load_error); end
+
+  sig { void }
+  def load_gem_extensions; end
+
   sig { void }
   def require_gem_file; end
 
@@ -1809,16 +1880,6 @@ class Tapioca::Loaders::Loader
   def eager_load_rails_app; end
 
   def engines; end
-
-  sig do
-    params(
-      gemfile: ::Tapioca::Gemfile,
-      initialize_file: T.nilable(::String),
-      require_file: T.nilable(::String),
-      halt_upon_load_error: T::Boolean
-    ).void
-  end
-  def load_bundle(gemfile, initialize_file, require_file, halt_upon_load_error); end
 
   sig { void }
   def load_engines_in_classic_mode; end
@@ -1890,6 +1951,18 @@ module Tapioca::RBIFilesHelper
 
   private
 
+  sig { params(constant: ::String).void }
+  def add_payload_superclass_suppression_to_config(constant); end
+
+  sig do
+    params(
+      errors: T::Array[::Spoom::Sorbet::Errors::Error],
+      gem_dir: ::String,
+      auto_strictness: T::Boolean
+    ).returns(T::Array[::Spoom::Sorbet::Errors::Error])
+  end
+  def apply_validation_fixes(errors, gem_dir:, auto_strictness:); end
+
   sig { params(nodes: T::Array[::RBI::Node]).returns(T::Array[T.any(::RBI::Attr, ::RBI::Method)]) }
   def extract_methods_and_attrs(nodes); end
 
@@ -1914,15 +1987,29 @@ module Tapioca::RBIFilesHelper
   sig { params(all_nodes: T::Array[::RBI::Node], shims_or_todos: T::Array[::RBI::Node]).returns(T::Boolean) }
   def has_duplicated_scopes?(all_nodes, shims_or_todos); end
 
+  sig { params(error: ::Spoom::Sorbet::Errors::Error, gem_dir: ::String, dsl_dir: ::String).returns(T::Boolean) }
+  def ignored_validation_error?(error, gem_dir:, dsl_dir:); end
+
   sig { params(index: ::RBI::Index, files: T::Array[::String], number_of_workers: T.nilable(::Integer)).void }
   def parse_and_index_files(index, files, number_of_workers:); end
+
+  sig { params(error: ::Spoom::Sorbet::Errors::Error).returns(T.nilable(::String)) }
+  def payload_superclass_constant_from_error(error); end
+
+  sig { params(error: ::Spoom::Sorbet::Errors::Error).returns(T::Boolean) }
+  def payload_superclass_error?(error); end
 
   sig { params(nodes: T::Array[::RBI::Node], shim_rbi_dir: ::String, todo_rbi_file: ::String).returns(T::Boolean) }
   def shims_or_todos_have_duplicates?(nodes, shim_rbi_dir:, todo_rbi_file:); end
 
   sig { params(errors: T::Array[::Spoom::Sorbet::Errors::Error], gem_dir: ::String).void }
   def update_gem_rbis_strictnesses(errors, gem_dir); end
+
+  sig { params(errors: T::Array[::Spoom::Sorbet::Errors::Error]).void }
+  def update_sorbet_config_for_payload_superclass_redefinitions(errors); end
 end
+
+Tapioca::RBIFilesHelper::SUPPRESS_PAYLOAD_SUPERCLASS_REDEFINITION_FLAG = T.let(T.unsafe(nil), String)
 
 class Tapioca::RBIFormatter < ::RBI::Formatter
   sig { params(file: ::RBI::File).void }
@@ -1937,13 +2024,16 @@ module Tapioca::RBIHelper
   extend ::Tapioca::SorbetHelper
   extend ::Tapioca::RBIHelper
 
+  sig { params(type: ::Symbol, name: ::String).returns(T::Boolean) }
+  def anonymous_parameter_name?(type, name); end
+
   sig { params(type: ::String).returns(::String) }
   def as_nilable_type(type); end
 
   sig { params(type: ::String).returns(::String) }
   def as_non_nilable_type(type); end
 
-  sig { params(name: ::String, type: ::String).returns(::RBI::TypedParam) }
+  sig { params(name: T.nilable(::String), type: ::String).returns(::RBI::TypedParam) }
   def create_block_param(name, type:); end
 
   sig { params(name: ::String, type: ::String, default: ::String).returns(::RBI::TypedParam) }
@@ -1952,7 +2042,7 @@ module Tapioca::RBIHelper
   sig { params(name: ::String, type: ::String).returns(::RBI::TypedParam) }
   def create_kw_param(name, type:); end
 
-  sig { params(name: ::String, type: ::String).returns(::RBI::TypedParam) }
+  sig { params(name: T.nilable(::String), type: ::String).returns(::RBI::TypedParam) }
   def create_kw_rest_param(name, type:); end
 
   sig { params(name: ::String, type: ::String, default: ::String).returns(::RBI::TypedParam) }
@@ -1961,7 +2051,7 @@ module Tapioca::RBIHelper
   sig { params(name: ::String, type: ::String).returns(::RBI::TypedParam) }
   def create_param(name, type:); end
 
-  sig { params(name: ::String, type: ::String).returns(::RBI::TypedParam) }
+  sig { params(name: T.nilable(::String), type: ::String).returns(::RBI::TypedParam) }
   def create_rest_param(name, type:); end
 
   sig { params(param: ::RBI::Param, type: ::String).returns(::RBI::TypedParam) }
@@ -1999,6 +2089,13 @@ module Tapioca::RBS; end
 module Tapioca::RBS::BootsnapGuard
   sig { params(_kwargs: T.untyped).void }
   def setup(**_kwargs); end
+end
+
+module Tapioca::RBS::BootsnapIntegration
+  class << self
+    sig { void }
+    def setup; end
+  end
 end
 
 class Tapioca::RBS::HostBootsnapSetupError < ::StandardError; end
@@ -2066,10 +2163,17 @@ module Tapioca::Runtime::GenericTypeRegistry
   end
 end
 
-class Tapioca::Runtime::GenericTypeRegistry::GenericType < ::T::Types::Simple
+class Tapioca::Runtime::GenericTypeRegistry::GenericType < ::T::Types::Base
   def initialize(raw_type, underlying_type); end
 
+  def build_type; end
+  def name; end
+  def raw_type; end
   def valid?(obj); end
+
+  private
+
+  def subtype_of_single?(type); end
 end
 
 Tapioca::Runtime::NOOP_METHOD = T.let(T.unsafe(nil), Proc)
