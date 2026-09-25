@@ -256,6 +256,8 @@ RSpec.shared_examples "#uninstall_phase or #zap_phase" do
     let(:signals) { %w[TERM KILL] }
     let(:unix_pids) { [12_345, 67_890] }
 
+    before { allow(Cask::Artifact::AbstractUninstall).to receive(:owner_uid).and_return(Process.uid) }
+
     it "is supported" do
       allow(subject).to receive(:running_processes).with(bundle_id)
                                                    .and_return(unix_pids.map { |pid| [pid, 0, bundle_id] })

@@ -28,6 +28,11 @@ module OS
             def bundle_identifier_for_pid(pid)
               MacOS::FFI::AppKit.bundle_identifier_for_pid(pid)
             end
+
+            sig { params(pid: Integer).returns(T.nilable(Integer)) }
+            def owner_uid(pid)
+              MacOS::FFI::LibProc.real_uid(pid)
+            end
           end
         end
       end

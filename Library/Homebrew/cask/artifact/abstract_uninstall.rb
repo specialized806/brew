@@ -398,6 +398,9 @@ module Cask
 
         sig { params(_pid: Integer).returns(T.nilable(String)) }
         def bundle_identifier_for_pid(_pid) = nil
+
+        sig { params(_pid: Integer).returns(T.nilable(Integer)) }
+        def owner_uid(_pid) = nil
       end
 
       sig { returns(T::Array[String]) }
@@ -459,6 +462,16 @@ module Cask
             next
           end
 
+          pids.select! do |pid|
+            uid = AbstractUninstall.owner_uid(pid)
+            next true if uid == Process.uid
+
+            reason = uid.nil? ? "its owner could not be determined" : "it is owned by another user"
+            odebug "Skipping signalling PID #{pid} for '#{bundle_id}': #{reason}."
+            false
+          end
+          next if pids.none?
+
           ohai "Signalling '#{signal}' to application ID '#{bundle_id}'"
 
           # Note that unlike :quit, signals are sent from the current user (not
@@ -467,7 +480,6 @@ module Cask
           # misapplied "kill" by root could bring down the system. The fact that we
           # learned the pid from AppleScript is already some degree of protection,
           # though indirect.
-          # TODO: check the user that owns the PID and don't try to kill those from other users.
           odebug "Unix ids are #{pids.inspect} for processes with bundle identifier #{bundle_id}"
           begin
             Process.kill(signal, *pids)
