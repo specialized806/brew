@@ -309,6 +309,7 @@ RSpec.configure do |config|
 
   config.around do |example|
     Homebrew.raise_deprecation_exceptions = true
+    Homebrew.auditing = false
 
     Tap.installed.each(&:clear_cache)
     Cacheable::Registry.clear_all_caches
