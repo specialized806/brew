@@ -462,9 +462,11 @@ module Cask
           end
 
           pids.select! do |pid|
-            next true if AbstractUninstall.owner_uid(pid) == Process.uid
+            uid = AbstractUninstall.owner_uid(pid)
+            next true if uid == Process.uid
 
-            odebug "Skipping signalling PID #{pid} for '#{bundle_id}': owner is not the current user."
+            reason = uid.nil? ? "its owner could not be determined" : "it is owned by another user"
+            odebug "Skipping signalling PID #{pid} for '#{bundle_id}': #{reason}."
             false
           end
           next if pids.none?
