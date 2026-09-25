@@ -149,8 +149,8 @@ RSpec.describe GitHub do
     end
   end
 
-  describe "::get_artifact_urls", :needs_network do
-    it "fails to find a nonexistent workflow" do
+  describe "::get_artifact_urls" do
+    it "fails to find a nonexistent workflow", :needs_network do
       expect do
         described_class.get_artifact_urls(
           described_class.get_workflow_run("Homebrew", "homebrew-core", "1"),
@@ -158,7 +158,7 @@ RSpec.describe GitHub do
       end.to raise_error(/No matching check suite found/)
     end
 
-    it "fails to find artifacts that don't exist" do
+    it "fails to find artifacts that don't exist", :needs_network do
       expect do
         described_class.get_artifact_urls(
           described_class.get_workflow_run("Homebrew", "homebrew-core", "252626",
@@ -168,11 +168,25 @@ RSpec.describe GitHub do
     end
 
     it "gets artifact URLs" do
-      urls = described_class.get_artifact_urls(
-        described_class.get_workflow_run("Homebrew", "homebrew-core", "252626",
-                                         workflow_id: "triage.yml", artifact_pattern: "event_payload"),
-      )
-      expect(urls).to eq(["https://api.github.com/repos/Homebrew/homebrew-core/actions/artifacts/4457761305/zip"])
+      allow(GitHub::API).to receive(:paginate_rest).with(
+        "https://api.github.com/repos/Homebrew/homebrew-core/actions/runs/19058874927/artifacts",
+        per_page: 50, scopes: GitHub::CREATE_ISSUE_FORK_OR_PR_SCOPES,
+      ).and_yield("artifacts" => [{
+        "name"                 => "event_payload",
+        "created_at"           => "2025-11-04T12:00:00Z",
+        "archive_download_url" => "https://api.github.com/repos/Homebrew/homebrew-core/actions/artifacts/4457761305/zip",
+      }])
+
+      expect(described_class.get_artifact_urls(
+               [[{
+                 "status"      => "COMPLETED",
+                 "workflowRun" => {
+                   "databaseId" => 19_058_874_927,
+                   "url"        => "https://github.com/Homebrew/homebrew-core/actions/runs/19058874927",
+                 },
+               }], "Homebrew", "homebrew-core", "252626", "triage.yml",
+                GitHub::CREATE_ISSUE_FORK_OR_PR_SCOPES, "event_payload"],
+             )).to eq(["https://api.github.com/repos/Homebrew/homebrew-core/actions/artifacts/4457761305/zip"])
     end
   end
 
