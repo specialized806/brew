@@ -14,8 +14,8 @@ module SimpleCov
   class << self
     def at_exit_behavior; end
     def clear_result; end
-    def collate(result_filenames, profile = T.unsafe(nil), processes: T.unsafe(nil), ignore_timeout: T.unsafe(nil), &_arg4); end
-    def collating_result?(*_arg0, **_arg1, &_arg2); end
+    def collate(result_filenames, profile = T.unsafe(nil), processes: T.unsafe(nil), ignore_timeout: T.unsafe(nil), &); end
+    def collating_result?(*, **, &); end
     def collect_own_coverage(standalone:); end
     def coverage_statistics_key(criterion); end
     def current_parallel_worker_count; end
@@ -29,37 +29,37 @@ module SimpleCov
     def external_at_exit?; end
     def filtered(files); end
     def final_result_process?; end
-    def forked_subprocess?(*_arg0, **_arg1, &_arg2); end
+    def forked_subprocess?(*, **, &); end
     def grouped(files, groups: T.unsafe(nil)); end
     def inject_unloaded_files(result, candidate_paths, synthesize: T.unsafe(nil), lines: T.unsafe(nil)); end
     def install_at_exit_hook; end
     def load_profile(name); end
-    def mark_forked_subprocess!(*_arg0, **_arg1, &_arg2); end
+    def mark_forked_subprocess!(*, **, &); end
     def merge_own_slice; end
     def monotonic_time; end
-    def next_subprocess_serial!(*_arg0, **_arg1, &_arg2); end
+    def next_subprocess_serial!(*, **, &); end
     def parallel_results_complete?; end
     def parallel_wait_timed_out?(deadline, expected, seen); end
-    def pid(*_arg0, **_arg1, &_arg2); end
-    def pid=(*_arg0, **_arg1, &_arg2); end
+    def pid(*, **, &); end
+    def pid=(*, **, &); end
     def previous_error?(error_exit_status); end
     def process_result(result); end
-    def process_start_time(*_arg0, **_arg1, &_arg2); end
-    def process_start_time=(*_arg0, **_arg1, &_arg2); end
+    def process_start_time(*, **, &); end
+    def process_start_time=(*, **, &); end
     def ready_to_process_results?; end
     def report_previous_error; end
     def report_processing_failure(exit_status); end
     def result; end
-    def result?(*_arg0, **_arg1, &_arg2); end
+    def result?(*, **, &); end
     def result_exit_status(result); end
     def resultset_count_settled?(tracker, count); end
     def round_coverage(coverage); end
     def run_exit_tasks(error_exit_status = T.unsafe(nil)); end
     def run_exit_tasks!(error_exit_status = T.unsafe(nil)); end
-    def start(profile = T.unsafe(nil), &_arg1); end
+    def start(profile = T.unsafe(nil), &); end
     def start_tracking; end
     def started_in_this_process?; end
-    def subprocess_serial(*_arg0, **_arg1, &_arg2); end
+    def subprocess_serial(*, **, &); end
     def successful?(status); end
     def wait_for_other_processes; end
     def wait_for_parallel_results(expected, native_wait: T.unsafe(nil)); end
@@ -82,6 +82,7 @@ module SimpleCov
     def tracked_file_paths; end
     def unloaded_file_discovery_globs; end
     def warn_if_jruby_full_trace_disabled; end
+    def warn_templates_tracked(templates); end
   end
 end
 
@@ -343,7 +344,7 @@ module SimpleCov::Configuration
   def formatter=(_arg0); end
   def formatters(formatters = T.unsafe(nil)); end
   def formatters=(formatters); end
-  def group(group_name, filter_argument = T.unsafe(nil), &_arg2); end
+  def group(group_name, filter_argument = T.unsafe(nil), &); end
   def groups; end
   def groups=(new_groups); end
   def history_limit(limit = T.unsafe(nil)); end
@@ -395,7 +396,7 @@ module SimpleCov::Configuration
   def remove_filter(filter_argument); end
   def root(root = T.unsafe(nil)); end
   def root=(root); end
-  def skip(filter_argument = T.unsafe(nil), &_arg1); end
+  def skip(filter_argument = T.unsafe(nil), &); end
   def skip_token(nocov_token = T.unsafe(nil)); end
   def source_in_json(value = T.unsafe(nil)); end
   def source_in_json=(value); end
@@ -683,7 +684,60 @@ end
 SimpleCov::Directive::CATEGORIES = T.let(T.unsafe(nil), Array)
 SimpleCov::Directive::CATEGORIES_PATTERN = T.let(T.unsafe(nil), String)
 SimpleCov::Directive::CATEGORY_PATTERN = T.let(T.unsafe(nil), String)
+
+module SimpleCov::Directive::Erb
+  class << self
+    def ruby_lines(lines); end
+
+    private
+
+    def blank(text); end
+    def convert(match); end
+  end
+end
+
+SimpleCov::Directive::Erb::SEGMENT = T.let(T.unsafe(nil), Regexp)
+
+module SimpleCov::Directive::Haml
+  include ::SimpleCov::Directive::IndentedTemplate
+  extend ::SimpleCov::Directive::IndentedTemplate
+  extend ::SimpleCov::Directive::Haml
+
+  def convert(indent, rest); end
+end
+
+SimpleCov::Directive::Haml::SCRIPT = T.let(T.unsafe(nil), Regexp)
+SimpleCov::Directive::Haml::TAG_SCRIPT = T.let(T.unsafe(nil), Regexp)
+
+module SimpleCov::Directive::IndentedTemplate
+  def ruby_lines(lines); end
+end
+
+SimpleCov::Directive::IndentedTemplate::COMMENT = T.let(T.unsafe(nil), Proc)
+SimpleCov::Directive::IndentedTemplate::RUBY = T.let(T.unsafe(nil), Proc)
+SimpleCov::Directive::IndentedTemplate::TEXT = T.let(T.unsafe(nil), Proc)
 SimpleCov::Directive::PATTERN = T.let(T.unsafe(nil), Regexp)
+
+module SimpleCov::Directive::Slim
+  include ::SimpleCov::Directive::IndentedTemplate
+  extend ::SimpleCov::Directive::IndentedTemplate
+  extend ::SimpleCov::Directive::Slim
+
+  def convert(indent, rest); end
+end
+
+SimpleCov::Directive::Slim::CODE = T.let(T.unsafe(nil), Regexp)
+SimpleCov::Directive::Slim::TAG_CODE = T.let(T.unsafe(nil), Regexp)
+
+module SimpleCov::Directive::Template
+  class << self
+    def blank(text); end
+    def ruby_lines(filename, lines); end
+    def template?(filename); end
+  end
+end
+
+SimpleCov::Directive::Template::EXTRACTORS = T.let(T.unsafe(nil), Hash)
 
 module SimpleCov::ExitCodes
   class << self
@@ -813,7 +867,7 @@ class SimpleCov::FileList
   def initialize(files); end
 
   def branch_covered_percent; end
-  def count(*_arg0, **_arg1, &_arg2); end
+  def count(*, **, &); end
   def coverage_statistics(criterion = T.unsafe(nil)); end
   def coverage_statistics_by_file; end
   def covered_branches; end
@@ -822,21 +876,21 @@ class SimpleCov::FileList
   def covered_percent(criterion = T.unsafe(nil)); end
   def covered_percentages; end
   def covered_strength(criterion = T.unsafe(nil)); end
-  def each(*_arg0, **_arg1, &_arg2); end
-  def empty?(*_arg0, **_arg1, &_arg2); end
+  def each(*, **, &); end
+  def empty?(*, **, &); end
   def least_covered_file; end
-  def length(*_arg0, **_arg1, &_arg2); end
+  def length(*, **, &); end
   def lines_of_code; end
-  def map(*_arg0, **_arg1, &_arg2); end
+  def map(*, **, &); end
   def method_covered_percent; end
   def missed_branches; end
   def missed_lines; end
   def missed_methods; end
   def never_lines; end
-  def size(*_arg0, **_arg1, &_arg2); end
+  def size(*, **, &); end
   def skipped_lines; end
-  def to_a(*_arg0, **_arg1, &_arg2); end
-  def to_ary(*_arg0, **_arg1, &_arg2); end
+  def to_a(*, **, &); end
+  def to_ary(*, **, &); end
   def total_branches; end
   def total_methods; end
 
@@ -1093,7 +1147,7 @@ module SimpleCov::History
 
     def entry_for(result); end
     def files_percents(result); end
-    def git(*_arg0); end
+    def git(*); end
     def invalid_history; end
     def measured_percents(stats_source); end
     def write(entries); end
@@ -1228,7 +1282,7 @@ class SimpleCov::Production::FileSink
 
   def envelope(existing, incoming); end
   def merge(existing, incoming); end
-  def open_file(name, mode, perm, &_arg3); end
+  def open_file(name, mode, perm, &); end
   def with_exclusive_lock; end
 
   class << self
@@ -1273,33 +1327,34 @@ class SimpleCov::Result
   def command_name=(_arg0); end
   def command_names; end
   def command_names=(_arg0); end
+  def configured_group?(group_name); end
   def contexts; end
   def coverage_for(path); end
-  def coverage_statistics(*_arg0, **_arg1, &_arg2); end
-  def coverage_statistics_by_file(*_arg0, **_arg1, &_arg2); end
-  def covered_branches(*_arg0, **_arg1, &_arg2); end
-  def covered_lines(*_arg0, **_arg1, &_arg2); end
-  def covered_methods(*_arg0, **_arg1, &_arg2); end
-  def covered_percent(*_arg0, **_arg1, &_arg2); end
-  def covered_percentages(*_arg0, **_arg1, &_arg2); end
-  def covered_strength(*_arg0, **_arg1, &_arg2); end
+  def coverage_statistics(*, **, &); end
+  def coverage_statistics_by_file(*, **, &); end
+  def covered_branches(*, **, &); end
+  def covered_lines(*, **, &); end
+  def covered_methods(*, **, &); end
+  def covered_percent(*, **, &); end
+  def covered_percentages(*, **, &); end
+  def covered_strength(*, **, &); end
   def created_at; end
   def created_at=(_arg0); end
   def filenames; end
   def files; end
   def format!; end
   def groups; end
-  def least_covered_file(*_arg0, **_arg1, &_arg2); end
-  def missed_branches(*_arg0, **_arg1, &_arg2); end
-  def missed_lines(*_arg0, **_arg1, &_arg2); end
-  def missed_methods(*_arg0, **_arg1, &_arg2); end
+  def least_covered_file(*, **, &); end
+  def missed_branches(*, **, &); end
+  def missed_lines(*, **, &); end
+  def missed_methods(*, **, &); end
   def original_result; end
   def run_id; end
   def source_file_for(path); end
   def source_files; end
-  def total_branches(*_arg0, **_arg1, &_arg2); end
-  def total_lines(*_arg0, **_arg1, &_arg2); end
-  def total_methods(*_arg0, **_arg1, &_arg2); end
+  def total_branches(*, **, &); end
+  def total_lines(*, **, &); end
+  def total_methods(*, **, &); end
   def tracked_files; end
   def worker_id; end
 
@@ -1376,7 +1431,7 @@ class SimpleCov::ResultAdapter
   def singleton_wrapper_name(klass); end
 
   class << self
-    def call(*_arg0); end
+    def call(*); end
   end
 end
 
@@ -1401,7 +1456,7 @@ module SimpleCov::ResultMerger
     def read_resultset; end
     def resultset_path; end
     def store_result(result); end
-    def synchronize_resultset(&_arg0); end
+    def synchronize_resultset(&); end
     def valid_results(file_path, ignore_timeout: T.unsafe(nil), &on_parse); end
     def warn_about_expired_results(expired_command_names); end
     def within_merge_timeout?(data); end
@@ -1445,10 +1500,10 @@ module SimpleCov::ResultMerger::ResultsetStore
   extend ::SimpleCov::ResultMerger::ResultsetStore
 
   def holding_writelock; end
-  def open_file(name, mode, &_arg2); end
+  def open_file(name, mode, &); end
   def resultset_path; end
-  def synchronize(&_arg0); end
-  def with_flock(&_arg0); end
+  def synchronize(&); end
+  def with_flock(&); end
   def write(resultset); end
   def writelock_path; end
 end
@@ -1652,6 +1707,7 @@ class SimpleCov::SourceFile::SkipChunks
   private
 
   def build_nocov_chunks; end
+  def ruby_lines; end
   def warn_nocov_deprecation(first_line_number); end
 
   class << self
@@ -1665,7 +1721,7 @@ module SimpleCov::SourceFile::SourceLoader
   def call(filename); end
   def ensure_remove_undefs(file_lines); end
   def make_utf8(line); end
-  def open_file(name, mode, &_arg2); end
+  def open_file(name, mode, &); end
   def read_lines(file, lines, current_line); end
   def scrub_invalid(line); end
   def set_encoding_based_on_magic_comment(file, line); end
@@ -1686,15 +1742,15 @@ class SimpleCov::SourceFile::Statistics
   def coverage_statistics(covered, missed, omitted: T.unsafe(nil), percent: T.unsafe(nil)); end
   def line_statistics; end
   def method_statistics; end
+  def unaccounted?(source_file, table); end
 end
 
 module SimpleCov::StaticCoverageExtractor
   extend ::SimpleCov::StaticCoverageExtractor
 
-  def available?; end
-  def branch_start_line(_type, _id, start_line, *_arg3); end
+  def branch_start_line(_type, _id, start_line, *); end
   def call(source); end
-  def method_identity(_class_name, name, start_line, *_arg3); end
+  def method_identity(_class_name, name, start_line, *); end
   def real_source_positions(source); end
 end
 
@@ -1711,18 +1767,14 @@ module SimpleCov::StaticCoverageExtractor::ConditionFolding
   def static_hash_literal?(node); end
   def static_range_literal?(node); end
   def unwrap_parentheses(node); end
-  def visit_dead_arm(arm); end
   def visit_folded_arms(verdict, truthy_arm, falsy_arm); end
 end
 
 SimpleCov::StaticCoverageExtractor::ConditionFolding::CONTAINER_CONTENTS_NEED_STATIC_LITERALS = T.let(T.unsafe(nil), TrueClass)
-SimpleCov::StaticCoverageExtractor::ConditionFolding::DEAD_ARM_BRANCHES_SURVIVE = T.let(T.unsafe(nil), FalseClass)
 SimpleCov::StaticCoverageExtractor::ConditionFolding::ELIMINABLE_READ_TYPES = T.let(T.unsafe(nil), Array)
 SimpleCov::StaticCoverageExtractor::ConditionFolding::FALSY_CONDITION_TYPES = T.let(T.unsafe(nil), Array)
 SimpleCov::StaticCoverageExtractor::ConditionFolding::FOLDS_SOURCE_FILE = T.let(T.unsafe(nil), FalseClass)
-SimpleCov::StaticCoverageExtractor::ConditionFolding::PARENS_ALWAYS_TRANSPARENT = T.let(T.unsafe(nil), FalseClass)
 SimpleCov::StaticCoverageExtractor::ConditionFolding::PAREN_OPAQUE_TYPES = T.let(T.unsafe(nil), Array)
-SimpleCov::StaticCoverageExtractor::ConditionFolding::PRISM_ERA_ELIMINABLE_READS = T.let(T.unsafe(nil), Array)
 SimpleCov::StaticCoverageExtractor::ConditionFolding::STATIC_CONDITION_TYPES = T.let(T.unsafe(nil), Array)
 SimpleCov::StaticCoverageExtractor::ConditionFolding::STATIC_LITERAL_LEAF_TYPES = T.let(T.unsafe(nil), Array)
 
@@ -1872,7 +1924,7 @@ end
 module SimpleCov::TestTracker::Accessors
   def start_test_tracking; end
   def test_tracker; end
-  def track_test(test_id, &_arg1); end
+  def track_test(test_id, &); end
 end
 
 class SimpleCov::TestTracker::ConstantWatch < ::Module
