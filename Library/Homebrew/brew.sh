@@ -70,14 +70,20 @@ fi
 # shellcheck disable=SC2249
 case "$1" in
   formulae)
-    source "${HOMEBREW_LIBRARY}/Homebrew/cmd/formulae.sh"
-    homebrew-formulae
-    exit 0
+    if [[ -z "${HOMEBREW_FORCE_RUBY_COMMAND:-}" ]]
+    then
+      source "${HOMEBREW_LIBRARY}/Homebrew/cmd/formulae.sh"
+      homebrew-formulae
+      exit 0
+    fi
     ;;
   casks)
-    source "${HOMEBREW_LIBRARY}/Homebrew/cmd/casks.sh"
-    homebrew-casks
-    exit 0
+    if [[ -z "${HOMEBREW_FORCE_RUBY_COMMAND:-}" ]]
+    then
+      source "${HOMEBREW_LIBRARY}/Homebrew/cmd/casks.sh"
+      homebrew-casks
+      exit 0
+    fi
     ;;
   shellenv)
     source "${HOMEBREW_LIBRARY}/Homebrew/cmd/shellenv.sh"

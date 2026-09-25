@@ -167,6 +167,9 @@ homebrew-trusted-items-with-api-names() {
   else
     echo "${trusted_items}"
   fi
+
+  # Output errors, including SIGPIPE, do not require the Ruby fallback.
+  return 0
 }
 
 homebrew-items-paths() {
