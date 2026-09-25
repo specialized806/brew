@@ -247,6 +247,17 @@ RSpec.describe Resource do
       expect { resource.stage(mktmpdir) }.not_to raise_error
     end
 
+    it "keeps the recorded modification time out of a staged git checkout's status" do
+      mktmpdir do |staging_path|
+        (staging_path/".git").mkpath
+        exclude = ""
+
+        resource.stage(staging_path:) { exclude = (staging_path/".git/info/exclude").read }
+
+        expect(exclude).to include(".source_modified_time")
+      end
+    end
+
     it "does not verify the cached download when reusing an existing staging directory" do
       resource.downloader.fetch
 
