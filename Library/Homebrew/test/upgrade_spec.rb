@@ -165,6 +165,27 @@ RSpec.describe Homebrew::Upgrade do
         "==> Not upgrading dependent: installed runtime dependencies satisfy bottle metadata\n",
       ).to_stdout
     end
+
+    it "keeps the requested order within keg-only and non-keg-only formulae" do
+      names = %w[a b c d e f g h i j]
+      formulae = names.map do |name|
+        formula(name) do
+          T.bind(self, T.class_of(Formula))
+          url "https://brew.sh/#{name}-1.0"
+          keg_only "to test keg only formulae ordered first without further order mutation" if %w[c h].include?(name)
+        end
+      end
+      download_queue = instance_double(Homebrew::DownloadQueue, fetch: nil, shutdown: nil)
+
+      allow(Migrator).to receive(:migrate_if_needed)
+      allow(Homebrew::DownloadQueue).to receive(:new).and_return(download_queue)
+      allow(described_class).to receive(:create_formula_installer) do |formula|
+        instance_double(FormulaInstaller, determine_bottle_tab_attributes: nil, fetch_bottle_tab: nil, formula:)
+      end
+
+      installers = described_class.formula_installers(formulae, flags: [])
+      expect(installers.map { |installer| installer.formula.name }).to eq(%w[c h a b d e f g i j])
+    end
   end
 
   describe "::dependent_formula_installers" do

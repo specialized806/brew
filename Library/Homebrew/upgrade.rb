@@ -105,15 +105,7 @@ module Homebrew
 
         # Sort keg-only before non-keg-only formulae to avoid any needless conflicts
         # with outdated, non-keg-only versions of formulae being upgraded.
-        formulae_to_install.sort! do |a, b|
-          if !a.keg_only? && b.keg_only?
-            1
-          elsif a.keg_only? && !b.keg_only?
-            -1
-          else
-            0
-          end
-        end
+        formulae_to_install.replace(formulae_to_install.partition(&:keg_only?).flatten(1))
 
         dependency_graph = Utils::TopologicalHash.graph_package_dependencies(formulae_to_install)
         sorted = dependency_graph.tsort_with_cycles do |cycles|
