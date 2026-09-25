@@ -100,6 +100,7 @@ class GitDownloadStrategy < VCSDownloadStrategy
     { "GIT_TERMINAL_PROMPT" => "0" }.tap do |env|
       if fetching? && Sandbox.isolate_operation?
         env["HOME"] = Dir.home(ENV.fetch("USER"))
+        env["PATH"] = PATH.new(ENV.fetch("PATH"), ORIGINAL_PATHS).to_s
         if (socket = ENV.fetch("SSH_AUTH_SOCK", nil))
           env["SSH_AUTH_SOCK"] = socket
         end

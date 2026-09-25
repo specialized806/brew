@@ -106,12 +106,15 @@ RSpec.describe GitDownloadStrategy do
       ENV["SSH_AUTH_SOCK"] = "/path/to/agent.sock"
     end
 
-    it "preserves HOME and SSH_AUTH_SOCK even for URLs that may be rewritten to SSH" do
+    it "preserves the download environment even for URLs that may be rewritten to SSH" do
       allow(strategy).to receive(:fetching?).and_return(true)
+      ENV["PATH"] = "/path/to/shims:/usr/bin:/bin"
+      stub_const("ORIGINAL_PATHS", [Pathname("/path/to/bin"), Pathname("/usr/bin")])
 
       expect(strategy.env).to eq(
         "GIT_TERMINAL_PROMPT" => "0",
         "HOME"                => Dir.home(ENV.fetch("USER")),
+        "PATH"                => "/path/to/shims:/usr/bin:/bin:/path/to/bin",
         "SSH_AUTH_SOCK"       => ENV.fetch("SSH_AUTH_SOCK"),
       )
     end
