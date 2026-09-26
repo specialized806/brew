@@ -52,7 +52,7 @@ module Homebrew
 
       sig { params(version: String).returns(T.nilable({ core: [Integer, Integer, Integer], prerelease: T::Array[String] })) }
       private_class_method def self.parse(version)
-        match = version.strip.delete_prefix("v").delete_prefix("V").match(SEMVER_REGEX)
+        match = version.strip.sub(/\Av/i, "").match(SEMVER_REGEX)
         return if match.nil?
 
         {
