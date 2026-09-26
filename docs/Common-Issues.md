@@ -86,6 +86,9 @@ A macOS upgrade may replace or invalidate the Command Line Tools and libraries u
 3. Run `brew update`.
 4. Run `brew upgrade` to rebuild or reinstall outdated formulae.
 
+After a major macOS upgrade, Homebrew may rebuild some packages (like `pkgconf`) from source to update its system library search paths.
+The rebuilt installation records the current macOS version, so subsequent `brew upgrade` runs should not repeat that rebuild for the same version mismatch.
+
 Do not create symlinks for missing versioned libraries.
 Those links can hide an incomplete upgrade and cause incompatible software to load the wrong library.
 

@@ -625,6 +625,7 @@ on_request: installed_on_request?, options:)
 
     unless @poured_bottle
       build
+      Tab.clear_cache
       clean
 
       # Store the formula used to build the keg in the keg.

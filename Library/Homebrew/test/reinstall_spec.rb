@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require "reinstall"
+require "test/support/fixtures/testball"
 
 RSpec.describe Homebrew::Reinstall do
   describe ".build_install_context" do
@@ -22,6 +23,31 @@ RSpec.describe Homebrew::Reinstall do
   end
 
   describe ".reinstall_formula" do
+    it "preserves new build metadata when reinstalling the same version from source" do
+      ENV["HOMEBREW_NO_INSTALL_FROM_API"] = "1"
+      formula = Testball.new
+      formula.prefix.mkpath
+      tab = Tab.create(formula)
+      tab.homebrew_version = "1.0.0"
+      tab.built_on = { "os_version" => "macOS 10.15" }
+      tab.poured_from_bottle = true
+      tab.installed_on_request = true
+      tab.write
+
+      context = described_class.build_install_context(formula, flags:                      [],
+                                                               build_from_source_formulae: [formula.full_name])
+      context.formula_installer.fetch
+
+      described_class.reinstall_formula(context)
+
+      expect(JSON.parse((formula.prefix/AbstractTab::FILENAME).read)).to include(
+        "homebrew_version"     => HOMEBREW_VERSION,
+        "built_on"             => DevelopmentTools.build_system_info,
+        "poured_from_bottle"   => false,
+        "installed_on_request" => true,
+      )
+    end
+
     it "restores and relinks a backup keg when reinstalling fails", :integration_test do
       setup_test_formula "testball", tab_attributes: { installed_on_request: true }
       formula = Formula["testball"]
