@@ -112,6 +112,18 @@ RSpec.describe Cask::Artifact::CommandWrapper, :cask do
     end.to raise_error(Cask::CaskInvalidError, /requires content or executable/)
   end
 
+  it "rejects options that are not a hash" do
+    expect do
+      described_class.from_args(cask, "other", "example")
+    end.to raise_error(Cask::CaskInvalidError, /requires a hash of options/)
+  end
+
+  it "rejects `false` options" do
+    expect do
+      described_class.from_args(cask, "other", false)
+    end.to raise_error(Cask::CaskInvalidError, /requires a hash of options/)
+  end
+
   it "rejects command names containing path components" do
     expect do
       described_class.from_args(cask, "../other", executable: "example")

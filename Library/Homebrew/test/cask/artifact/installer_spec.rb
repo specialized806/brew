@@ -9,6 +9,16 @@ RSpec.describe Cask::Artifact::Installer, :cask do
   let(:command) { SystemCommand }
   let(:args) { {} }
 
+  describe "#initialize" do
+    context "when given a manual installer that is not a path" do
+      let(:args) { { manual: 123 } }
+
+      it "raises an error" do
+        expect { installer }.to raise_error(Cask::CaskInvalidError, /requires a path for :manual/)
+      end
+    end
+  end
+
   describe "#install_phase" do
     context "when given a manual installer" do
       let(:args) { { manual: "installer" } }

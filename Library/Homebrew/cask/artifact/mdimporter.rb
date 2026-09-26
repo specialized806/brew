@@ -19,21 +19,14 @@ module Cask
           force:        T::Boolean,
           verbose:      T::Boolean,
           predecessor:  T.nilable(Cask),
+          successor:    T.nilable(Cask),
           reinstall:    T::Boolean,
           command:      T.class_of(SystemCommand),
-          options:      T.anything,
         ).void
       }
       def install_phase(adopt: false, auto_updates: false, force: false, verbose: false, predecessor: nil,
-                        reinstall: false, command: SystemCommand, **options)
+                        successor: nil, reinstall: false, command: SystemCommand)
         super
-        reload_spotlight(command:, **options)
-      end
-
-      private
-
-      sig { params(command: T.class_of(SystemCommand), _options: T.anything).void }
-      def reload_spotlight(command:, **_options)
         command.run!("/usr/bin/mdimport", args: ["-r", target])
       end
     end

@@ -13,18 +13,19 @@ module Cask
         params(
           cask:    Cask,
           path:    T.any(String, Pathname),
-          options: T.untyped,
+          options: T.nilable(DirectivesType),
         ).returns(T.attached_class)
       }
       def self.from_args(cask, path, options = nil)
-        options ||= {}
+        raise CaskInvalidError.new(cask, "'generated_script' requires content") unless options.is_a?(Hash)
+
         ::Utils::Data.assert_valid_keys(options, :content)
-        new(cask, path, **options)
+        new(cask, path, content: options[:content])
       end
 
-      sig { params(cask: Cask, path: T.any(String, Pathname), content: String).void }
+      sig { params(cask: Cask, path: T.any(String, Pathname), content: T.nilable(String)).void }
       def initialize(cask, path, content:)
-        raise CaskInvalidError.new(cask, "'generated_script' requires content") if content.blank?
+        raise CaskInvalidError.new(cask, "'generated_script' requires content") if content.nil? || content.blank?
 
         super(cask)
         path = Pathname(path)
@@ -37,8 +38,18 @@ module Cask
         @content = content
       end
 
-      sig { params(_options: T.anything).void }
-      def install_phase(**_options)
+      sig {
+        params(
+          adopt:        T::Boolean,
+          auto_updates: T.nilable(T::Boolean),
+          force:        T::Boolean,
+          verbose:      T::Boolean,
+          predecessor:  T.nilable(Cask),
+          command:      T.class_of(SystemCommand),
+        ).void
+      }
+      def install_phase(adopt: false, auto_updates: false, force: false, verbose: false, predecessor: nil,
+                        command: SystemCommand)
         @path.ascend do |path|
           break if path == cask.staged_path
 

@@ -736,17 +736,13 @@ on_request: true)
           )
 
           odebug "Uninstalling artifact of class #{artifact.class}"
-          uninstall_options = {
-            command:   @command,
-            verbose:   verbose?,
-            skip:      clear,
-            force:     force?,
-            successor:,
-            upgrade:   upgrade?,
-            reinstall: reinstall?,
-          }
-          uninstall_options[:quit] = quit if artifact.is_a?(Artifact::Uninstall)
-          artifact.uninstall_phase(**uninstall_options)
+          if artifact.is_a?(Artifact::Uninstall)
+            artifact.uninstall_phase(command: @command, verbose: verbose?, skip: clear, force: force?, successor:,
+                                     upgrade: upgrade?, reinstall: reinstall?, quit:)
+          else
+            artifact.uninstall_phase(command: @command, verbose: verbose?, skip: clear, force: force?, successor:,
+                                     upgrade: upgrade?, reinstall: reinstall?)
+          end
         end
 
         next unless artifact.respond_to?(:post_uninstall_phase)

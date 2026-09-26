@@ -27,6 +27,14 @@ RSpec.describe Cask::Artifact::Artifact, :cask do
     end
   end
 
+  context "with an unknown key" do
+    it "fails to load" do
+      expect do
+        described_class.from_args(cask, "Caffeine.app", { target: "Caffeine.app", bogus: 1 })
+      end.to raise_error(ArgumentError, /Unknown key: :bogus/)
+    end
+  end
+
   context "with relative target" do
     it "does not fail to load" do
       expect do

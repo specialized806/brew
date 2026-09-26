@@ -22,11 +22,10 @@ module Cask
           successor:    T.nilable(Cask),
           reinstall:    T::Boolean,
           command:      T.class_of(SystemCommand),
-          options:      T.anything,
         ).void
       }
       def install_phase(adopt: false, auto_updates: false, force: false, verbose: false, predecessor: nil,
-                        successor: nil, reinstall: false, command: SystemCommand, **options)
+                        successor: nil, reinstall: false, command: SystemCommand)
         super
         reload_quicklook(command:)
       end
@@ -41,11 +40,10 @@ module Cask
           upgrade:   T::Boolean,
           reinstall: T::Boolean,
           command:   T.class_of(SystemCommand),
-          options:   T.anything,
         ).void
       }
       def uninstall_phase(skip: false, force: false, adopt: false, verbose: false, successor: nil, upgrade: false,
-                          reinstall: false, command: SystemCommand, **options)
+                          reinstall: false, command: SystemCommand)
         super
         reload_quicklook(command:)
       end

@@ -21,14 +21,23 @@ module Cask
         override.params(
           cask:    Cask,
           name:    T.any(String, Pathname),
-          options: T.untyped,
+          options: T.nilable(DirectivesType),
         ).returns(T.attached_class)
       }
       def self.from_args(cask, name, options = nil)
-        options ||= {}
+        options = {} if options.nil?
+        raise CaskInvalidError.new(cask, "'command_wrapper' requires a hash of options") unless options.is_a?(Hash)
+
         ::Utils::Data.assert_valid_keys(options, :content, :executable, :args, :env)
 
-        new(cask, name, **options)
+        new(
+          cask,
+          name,
+          content:    options[:content],
+          executable: options[:executable],
+          args:       options.fetch(:args, []),
+          env:        options.fetch(:env, {}),
+        )
       end
 
       sig {
@@ -65,16 +74,18 @@ module Cask
 
       sig {
         override.params(
-          force:     T::Boolean,
-          adopt:     T::Boolean,
-          overwrite: T::Boolean,
-          dry_run:   T::Boolean,
-          command:   T.class_of(SystemCommand),
-          options:   T.anything,
+          adopt:        T::Boolean,
+          auto_updates: T.nilable(T::Boolean),
+          force:        T::Boolean,
+          verbose:      T::Boolean,
+          predecessor:  T.nilable(Cask),
+          overwrite:    T::Boolean,
+          dry_run:      T::Boolean,
+          command:      T.class_of(SystemCommand),
         ).void
       }
-      def install_phase(force: false, adopt: false, overwrite: false, dry_run: false, command: SystemCommand,
-                        **options)
+      def install_phase(adopt: false, auto_updates: false, force: false, verbose: false, predecessor: nil,
+                        overwrite: false, dry_run: false, command: SystemCommand)
         unless dry_run
           if (content = @content)
             source.dirname.mkpath

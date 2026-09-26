@@ -26,13 +26,34 @@ module Cask
         @directives = directives
       end
 
-      sig { params(_options: T.anything).void }
-      def install_phase(**_options)
+      sig {
+        params(
+          adopt:        T::Boolean,
+          auto_updates: T.nilable(T::Boolean),
+          force:        T::Boolean,
+          verbose:      T::Boolean,
+          predecessor:  T.nilable(Cask),
+          command:      T.class_of(SystemCommand),
+        ).void
+      }
+      def install_phase(adopt: false, auto_updates: false, force: false, verbose: false, predecessor: nil,
+                        command: SystemCommand)
         abstract_phase(self.class.dsl_key)
       end
 
-      sig { params(_options: T.anything).void }
-      def uninstall_phase(**_options)
+      sig {
+        params(
+          skip:      T::Boolean,
+          force:     T::Boolean,
+          verbose:   T::Boolean,
+          successor: T.nilable(Cask),
+          upgrade:   T::Boolean,
+          reinstall: T::Boolean,
+          command:   T.class_of(SystemCommand),
+        ).void
+      }
+      def uninstall_phase(skip: false, force: false, verbose: false, successor: nil, upgrade: false,
+                          reinstall: false, command: SystemCommand)
         abstract_phase(self.class.uninstall_dsl_key)
       end
 

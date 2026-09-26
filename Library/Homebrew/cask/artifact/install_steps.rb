@@ -145,42 +145,106 @@ module Cask
 
     # Artifact corresponding to the `preflight_steps` stanza.
     class PreflightSteps < AbstractInstallSteps
-      sig { params(command: T.class_of(SystemCommand), _options: T.anything).void }
-      def install_phase(command: SystemCommand, **_options)
+      sig {
+        params(
+          adopt:        T::Boolean,
+          auto_updates: T.nilable(T::Boolean),
+          force:        T::Boolean,
+          verbose:      T::Boolean,
+          predecessor:  T.nilable(Cask),
+          command:      T.class_of(SystemCommand),
+        ).void
+      }
+      def install_phase(adopt: false, auto_updates: false, force: false, verbose: false, predecessor: nil,
+                        command: SystemCommand)
         run_steps(command)
       end
 
-      sig { params(command: T.class_of(SystemCommand), _options: T.anything).void }
-      def uninstall_phase(command: SystemCommand, **_options)
+      sig {
+        params(
+          skip:      T::Boolean,
+          force:     T::Boolean,
+          verbose:   T::Boolean,
+          successor: T.nilable(Cask),
+          upgrade:   T::Boolean,
+          reinstall: T::Boolean,
+          command:   T.class_of(SystemCommand),
+        ).void
+      }
+      def uninstall_phase(skip: false, force: false, verbose: false, successor: nil, upgrade: false,
+                          reinstall: false, command: SystemCommand)
         run_steps(command, phase: :uninstall)
       end
     end
 
     # Artifact corresponding to the `postflight_steps` stanza.
     class PostflightSteps < AbstractInstallSteps
-      sig { params(command: T.class_of(SystemCommand), _options: T.anything).void }
-      def install_phase(command: SystemCommand, **_options)
+      sig {
+        params(
+          adopt:        T::Boolean,
+          auto_updates: T.nilable(T::Boolean),
+          force:        T::Boolean,
+          verbose:      T::Boolean,
+          predecessor:  T.nilable(Cask),
+          command:      T.class_of(SystemCommand),
+        ).void
+      }
+      def install_phase(adopt: false, auto_updates: false, force: false, verbose: false, predecessor: nil,
+                        command: SystemCommand)
         run_steps(command)
       end
 
-      sig { params(command: T.class_of(SystemCommand), _options: T.anything).void }
-      def uninstall_phase(command: SystemCommand, **_options)
+      sig {
+        params(
+          skip:      T::Boolean,
+          force:     T::Boolean,
+          verbose:   T::Boolean,
+          successor: T.nilable(Cask),
+          upgrade:   T::Boolean,
+          reinstall: T::Boolean,
+          command:   T.class_of(SystemCommand),
+        ).void
+      }
+      def uninstall_phase(skip: false, force: false, verbose: false, successor: nil, upgrade: false,
+                          reinstall: false, command: SystemCommand)
         run_steps(command, phase: :uninstall)
       end
     end
 
     # Artifact corresponding to the `uninstall_preflight_steps` stanza.
     class UninstallPreflightSteps < AbstractInstallSteps
-      sig { params(command: T.class_of(SystemCommand), _options: T.anything).void }
-      def uninstall_phase(command: SystemCommand, **_options)
+      sig {
+        params(
+          skip:      T::Boolean,
+          force:     T::Boolean,
+          verbose:   T::Boolean,
+          successor: T.nilable(Cask),
+          upgrade:   T::Boolean,
+          reinstall: T::Boolean,
+          command:   T.class_of(SystemCommand),
+        ).void
+      }
+      def uninstall_phase(skip: false, force: false, verbose: false, successor: nil, upgrade: false,
+                          reinstall: false, command: SystemCommand)
         run_steps(command)
       end
     end
 
     # Artifact corresponding to the `uninstall_postflight_steps` stanza.
     class UninstallPostflightSteps < AbstractInstallSteps
-      sig { params(command: T.class_of(SystemCommand), _options: T.anything).void }
-      def uninstall_phase(command: SystemCommand, **_options)
+      sig {
+        params(
+          skip:      T::Boolean,
+          force:     T::Boolean,
+          verbose:   T::Boolean,
+          successor: T.nilable(Cask),
+          upgrade:   T::Boolean,
+          reinstall: T::Boolean,
+          command:   T.class_of(SystemCommand),
+        ).void
+      }
+      def uninstall_phase(skip: false, force: false, verbose: false, successor: nil, upgrade: false,
+                          reinstall: false, command: SystemCommand)
         run_steps(command)
       end
     end

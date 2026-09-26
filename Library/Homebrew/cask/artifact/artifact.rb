@@ -14,19 +14,19 @@ module Cask
 
       sig {
         override.params(
-          cask:    Cask,
-          source:  T.any(String, Pathname),
-          options: T.untyped, # required due to https://github.com/sorbet/sorbet/issues/10114
+          cask:        Cask,
+          source:      T.any(String, Pathname),
+          target_hash: T.nilable(DirectivesType),
         ).returns(T.attached_class)
       }
-      def self.from_args(cask, source, options = nil)
+      def self.from_args(cask, source, target_hash = nil)
         raise CaskInvalidError.new(cask.token, "No source provided for #{english_name}.") if source.blank?
 
-        unless options&.key?(:target)
+        if !target_hash.is_a?(Hash) || !target_hash.key?(:target)
           raise CaskInvalidError.new(cask.token, "#{english_name} '#{source}' requires a target.")
         end
 
-        new(cask, source, **options)
+        super
       end
 
       sig { override.params(target: T.any(String, Pathname), base_dir: T.nilable(Pathname)).returns(Pathname) }

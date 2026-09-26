@@ -11,13 +11,18 @@ module Cask
 
       sig {
         params(
+          command:   T.class_of(SystemCommand),
+          skip:      T::Boolean,
+          force:     T::Boolean,
+          verbose:   T::Boolean,
+          successor: T.nilable(Cask),
           upgrade:   T::Boolean,
           reinstall: T::Boolean,
           quit:      T::Boolean,
-          options:   T.anything,
         ).void
       }
-      def uninstall_phase(upgrade: false, reinstall: false, quit: true, **options)
+      def uninstall_phase(command:, skip: false, force: false, verbose: false, successor: nil, upgrade: false,
+                          reinstall: false, quit: true)
         raw_on_upgrade = directives[:on_upgrade]
         on_upgrade_syms =
           case raw_on_upgrade
@@ -44,13 +49,21 @@ module Cask
         end
 
         filtered_directives.each do |directive_sym|
-          dispatch_uninstall_directive(directive_sym, **options, upgrade:)
+          dispatch_uninstall_directive(directive_sym, command:, force:, successor:, upgrade:)
         end
       end
 
-      sig { params(options: T.anything).void }
-      def post_uninstall_phase(**options)
-        dispatch_uninstall_directive(:rmdir, **options)
+      sig {
+        params(
+          command:   T.class_of(SystemCommand),
+          skip:      T::Boolean,
+          force:     T::Boolean,
+          verbose:   T::Boolean,
+          successor: T.nilable(Cask),
+        ).void
+      }
+      def post_uninstall_phase(command:, skip: false, force: false, verbose: false, successor: nil)
+        dispatch_uninstall_directive(:rmdir, command:, force:, successor:)
       end
     end
   end
