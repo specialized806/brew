@@ -1,9 +1,9 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "vulns/semver"
+require "semver"
 
-RSpec.describe Homebrew::Vulns::Semver do
+RSpec.describe Homebrew::Semver do
   describe ".release_version" do
     it "rejects repeated version prefixes" do
       expect(%w[vv vV Vv VV].map { |prefix| described_class.release_version("#{prefix}1.0.0-rc.1") })

@@ -1,7 +1,7 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "vulns/semver"
+require "semver"
 require "vulns/cvss"
 require "vulns/vulnerability"
 require "vulns/osv"
