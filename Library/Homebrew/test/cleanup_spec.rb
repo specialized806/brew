@@ -476,6 +476,23 @@ RSpec.describe Homebrew::Cleanup do
 
         expect(download).to exist
       end
+
+      it "removes downloads when the cask has no version on the current system" do
+        cask = instance_double(Cask::Cask,
+                               token:             "macos-only",
+                               version:           nil,
+                               installed_version: nil,
+                               url:               nil,
+                               caskroom_path:     Cask::Caskroom.path/"macos-only")
+        download = Cask::Cache.path/"#{cask.token}--1.0.AppImage"
+
+        allow(Cask::CaskLoader).to receive(:load).with(cask.token, warn: false).and_return(cask)
+        FileUtils.touch download
+
+        cleanup.cleanup_cask(cask)
+
+        expect(download).not_to exist
+      end
     end
 
     context "when given a `:latest` cask" do

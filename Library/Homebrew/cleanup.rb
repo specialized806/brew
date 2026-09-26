@@ -101,7 +101,10 @@ module Homebrew
 
       sig { params(pathname: Pathname, cask: Cask::Cask, name: String).returns(T::Boolean) }
       def cask_cache_file_current?(pathname, cask, name)
-        pathname.basename.to_s.match?(/\A#{Regexp.escape(name)}--#{Regexp.escape(cask.version)}(?:\.|\z)/)
+        # Casks that only define a version inside OS-specific blocks have none on other systems.
+        return false unless (version = cask.version)
+
+        pathname.basename.to_s.match?(/\A#{Regexp.escape(name)}--#{Regexp.escape(version)}(?:\.|\z)/)
       end
 
       sig { params(pathname: Pathname, cask: Cask::Cask, name: String, scrub: T::Boolean).returns(T::Boolean) }
