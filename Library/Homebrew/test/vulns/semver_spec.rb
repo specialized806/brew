@@ -10,6 +10,10 @@ RSpec.describe Homebrew::Vulns::Semver do
         .to eq [nil, nil, nil, nil]
     end
 
+    it "rejects an oversized prerelease" do
+      expect(described_class.release_version("1.0.0-#{"a" * 251}")).to be_nil
+    end
+
     it "normalises a prerelease with a prefix and build metadata" do
       expect(described_class.release_version("v2026.2.22-rc.1+build.2")).to eq "2026.2.22"
     end
@@ -27,6 +31,23 @@ RSpec.describe Homebrew::Vulns::Semver do
         [described_class.compare("#{prefix}1.0.0", "1.0.0"),
          described_class.compare("1.0.0", "#{prefix}1.0.0")]
       end).to all(be_nil)
+    end
+
+    it "accepts versions at the input limit" do
+      version = "1.0.0-#{"a" * 250}"
+      expect(described_class.compare(version, "1.0.0")).to eq(-1)
+    end
+
+    it "rejects versions exceeding the input limit on either side" do
+      version = "1.0.0-#{"a" * 251}"
+      expect([described_class.compare(version, "1.0.0"), described_class.compare("1.0.0", version)])
+        .to all(be_nil)
+    end
+
+    it "rejects oversized core, prerelease, build and whitespace inputs" do
+      versions = ["#{"9" * 5000}.0.0", "1.0.0-#{"9" * 5000}", "1.0.0+#{"a." * 2500}a",
+                  "#{" " * 5000}1.0.0"]
+      expect(versions.map { |version| described_class.compare(version, "1.0.0") }).to all(be_nil)
     end
 
     # From vers gem: basic numeric ordering

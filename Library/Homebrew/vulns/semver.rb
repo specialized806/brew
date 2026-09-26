@@ -5,8 +5,12 @@ module Homebrew
   module Vulns
     # SemVer 2.0 comparison for OSV `SEMVER` ranges (https://semver.org/#spec-item-11).
     # Kept separate from `::Version`, whose ordering differs for prerelease and
-    # build metadata. Minor/patch may be omitted; other spec violations return `nil`.
+    # build metadata. Minor/patch may be omitted; other spec violations or
+    # inputs over 256 bytes return `nil`.
     module Semver
+      MAX_LENGTH = 256
+      private_constant :MAX_LENGTH
+
       CORE_SEGMENT = "(0|[1-9]\\d*)"
       private_constant :CORE_SEGMENT
 
@@ -52,6 +56,8 @@ module Homebrew
 
       sig { params(version: String).returns(T.nilable({ core: [Integer, Integer, Integer], prerelease: T::Array[String] })) }
       private_class_method def self.parse(version)
+        return if version.bytesize > MAX_LENGTH
+
         match = version.strip.sub(/\Av/i, "").match(SEMVER_REGEX)
         return if match.nil?
 
