@@ -167,7 +167,15 @@ class Resource
         else
           downloader.source_modified_time
         end
-        source_modified_time_path&.write(source_modified_time.to_i.to_s) unless staged
+        if source_modified_time_path && !staged
+          source_modified_time_path.write(source_modified_time.to_i.to_s)
+          # Don't dirty the git tree for git clones, which some builds embed in their version.
+          git_dir = staging_path/".git"
+          if git_dir.directory? && !git_dir.symlink?
+            (git_dir/"info").mkpath
+            (git_dir/"info/exclude").open("a") { |file| file.puts source_modified_time_path.basename }
+          end
+        end
         @source_modified_time = source_modified_time.freeze
         apply_patches unless staged
         if block
