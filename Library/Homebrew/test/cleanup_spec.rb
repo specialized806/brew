@@ -409,6 +409,32 @@ RSpec.describe Homebrew::Cleanup do
     end
   end
 
+  describe "#cleanup_temp_staging" do
+    it "removes leftover staged cask downloads" do
+      staged_path = HOMEBREW_TEMP_CASKROOM/"local-caffeine/1.2.3"
+      staged_path.mkpath
+      FileUtils.ln_s staged_path, "#{staged_path}.staged"
+
+      cleanup.cleanup_temp_staging
+
+      expect(HOMEBREW_TEMP_CASKROOM/"local-caffeine").not_to exist
+    end
+
+    it "warns and continues when a leftover cannot be removed" do
+      read_only = HOMEBREW_TEMP_CASKROOM/"a-read-only/1.0/App.app/Contents"
+      (read_only/"file").dirname.mkpath
+      FileUtils.touch read_only/"file"
+      read_only.chmod 0555
+      removable = HOMEBREW_TEMP_CASKROOM/"b-removable/1.0"
+      removable.mkpath
+
+      expect { cleanup.cleanup_temp_staging }.to output(/Permission denied/).to_stderr
+      expect(HOMEBREW_TEMP_CASKROOM/"b-removable").not_to exist
+    ensure
+      read_only&.chmod 0755
+    end
+  end
+
   describe "#cleanup_cask", :cask do
     before do
       Cask::Cache.path.mkpath

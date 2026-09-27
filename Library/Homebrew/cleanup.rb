@@ -474,7 +474,7 @@ module Homebrew
         cleanup_empty_api_source_directories
         cleanup_bootsnap
         cleanup_logs
-        cleanup_temp_cellar
+        cleanup_temp_staging
         cleanup_reinstall_kegs
         cleanup_lockfiles
         cleanup_python_site_packages
@@ -634,11 +634,15 @@ module Homebrew
     end
 
     sig { void }
-    def cleanup_temp_cellar
-      return unless HOMEBREW_TEMP_CELLAR.directory?
+    def cleanup_temp_staging
+      [HOMEBREW_TEMP_CELLAR, HOMEBREW_TEMP_CASKROOM].each do |temp_dir|
+        next unless temp_dir.directory?
 
-      HOMEBREW_TEMP_CELLAR.each_child do |child|
-        cleanup_path(child) { FileUtils.rm_r(child) }
+        temp_dir.each_child do |child|
+          cleanup_path(child) { FileUtils.rm_r(child) }
+        rescue Errno::EACCES, Errno::ENOTEMPTY => e
+          opoo e.message
+        end
       end
     end
 

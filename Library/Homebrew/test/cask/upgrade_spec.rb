@@ -925,6 +925,18 @@ RSpec.describe Cask::Upgrade, :cask do
       expect(bad_checksum.staged_path).not_to exist
     end
 
+    it "removes the pre-staged download if the upgrade failed before staging" do
+      will_fail_if_upgraded = Cask::CaskLoader.load("will-fail-if-upgraded")
+      allow_any_instance_of(Cask::Installer).to receive(:start_upgrade).and_raise("quit failed")
+
+      expect do
+        described_class.upgrade_casks!(will_fail_if_upgraded, args:)
+      end.to output(/Error: will-fail-if-upgraded: quit failed/).to_stderr
+
+      expect(will_fail_if_upgraded.installed_version).to eq "1.2.2"
+      expect(HOMEBREW_TEMP_CASKROOM/"will-fail-if-upgraded").not_to exist
+    end
+
     it "reports the original upgrade error, not a failure that occurs while rolling back" do
       will_fail_if_upgraded = Cask::CaskLoader.load("will-fail-if-upgraded")
       allow_any_instance_of(Cask::Installer).to receive(:revert_upgrade).and_raise("rollback failed")

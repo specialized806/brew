@@ -504,6 +504,7 @@ module Cask
           new_cask_installer.uninstall_artifacts(successor: old_cask, quit:) if new_artifacts_installed
           new_cask_installer.purge_versioned_files
           old_cask_installer.revert_upgrade(predecessor: new_cask) if started_upgrade
+          new_cask_installer.downloader.purge_staged_from_download_queue
         rescue => rollback_error
           opoo "Rolling back the failed upgrade of #{old_cask.token} also failed: " \
                "#{rollback_error.class}: #{rollback_error.message}"
