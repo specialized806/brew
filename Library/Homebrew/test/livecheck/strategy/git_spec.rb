@@ -193,6 +193,7 @@ RSpec.describe Homebrew::Livecheck::Strategy::Git do
           print_stderr: false,
           debug:        false,
           verbose:      false,
+          timeout:      20,
         )
         .and_return([nil, nil, nil])
 
@@ -224,6 +225,13 @@ RSpec.describe Homebrew::Livecheck::Strategy::Git do
     it "returns a blank hash if neither `stdout` nor `stderr` are present" do
       allow(git).to receive(:system_command).and_return([nil, nil, nil])
       expect(git.ls_remote_tags(git_url)).to eq({})
+    end
+
+    it "returns an error message when fetching tags times out" do
+      allow(git).to receive(:system_command).and_raise(Timeout::Error)
+
+      expect(git.ls_remote_tags(git_url))
+        .to eq({ messages: ["git ls-remote timed out after 20 seconds."] })
     end
   end
 

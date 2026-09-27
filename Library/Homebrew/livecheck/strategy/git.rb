@@ -3,6 +3,7 @@
 
 require "livecheck/strategic"
 require "system_command"
+require "timeout"
 require "uri"
 
 module Homebrew
@@ -40,6 +41,9 @@ module Homebrew
         # The priority of the strategy on an informal scale of 1 to 10 (from
         # lowest to highest).
         PRIORITY = 8
+
+        # Maximum time in seconds to wait for `git ls-remote` to finish.
+        TIMEOUT = 20
 
         # The regex used to extract tags from `git ls-remote --tags` output.
         TAG_REGEX = %r{^\h+\s+refs/tags/(.+?)(?:\^{})?$}
@@ -121,7 +125,7 @@ module Homebrew
         end
 
         # Runs `git ls-remote --tags` with the provided URL and returns a hash
-        # containing the `stdout` content or any errors from `stderr`.
+        # containing the `stdout` content, errors from `stderr` or a timeout error.
         #
         # @param url [String] the URL of the Git repository to check
         # @return [Hash]
@@ -135,6 +139,7 @@ module Homebrew
             print_stderr: false,
             debug:        false,
             verbose:      false,
+            timeout:      TIMEOUT,
           ).to_a
 
           data = {}
@@ -142,6 +147,8 @@ module Homebrew
           data[:messages] = stderr.split("\n") if stderr.present?
 
           data
+        rescue Timeout::Error
+          { messages: ["git ls-remote timed out after #{TIMEOUT} seconds."] }
         end
 
         # Parse tags from `git ls-remote --tags` output.
