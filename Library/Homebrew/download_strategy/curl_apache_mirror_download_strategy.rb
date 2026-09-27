@@ -29,22 +29,26 @@ class CurlApacheMirrorDownloadStrategy < CurlDownloadStrategy
   sig { override.params(url: String, timeout: T.nilable(T.any(Float, Integer))).returns(URLMetadata) }
   def resolve_url_basename_time_file_size(url, timeout: nil)
     if url == self.url
-      preferred = if apache_mirrors["in_attic"]
+      end_time = Time.now + timeout if timeout
+      mirror_info = apache_mirrors(timeout:)
+      preferred = if mirror_info["in_attic"]
         "https://archive.apache.org/dist/"
       else
-        apache_mirrors["preferred"]
+        mirror_info["preferred"]
       end
-      super("#{preferred}#{apache_mirrors["path_info"]}", timeout:)
+      super("#{preferred}#{mirror_info["path_info"]}", timeout: Utils::Timer.remaining!(end_time))
     else
       super
     end
   end
 
-  sig { returns(T::Hash[String, T.untyped]) }
-  def apache_mirrors
+  sig { params(timeout: T.nilable(T.any(Float, Integer))).returns(T::Hash[String, T.untyped]) }
+  def apache_mirrors(timeout: nil)
     return @apache_mirrors if @apache_mirrors
 
-    json = curl_output("--silent", "--location", "#{url}&asjson=1").stdout
+    json = curl_output(
+      "--silent", "--location", "#{url}&asjson=1", timeout: timeout || Utils::Timer.remaining!(@fetch_end_time)
+    ).stdout
     mirrors = JSON.parse(json)
     @apache_mirrors = T.let(mirrors, T.nilable(T::Hash[String, T.untyped]))
     mirrors

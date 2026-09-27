@@ -28,6 +28,8 @@ module Cask
     include ::Utils::Curl
     include ::Utils::Output::Mixin
 
+    DOWNLOAD_TIMEOUT = 600
+
     Error = T.type_alias do
       {
         message:   T.nilable(String),
@@ -70,6 +72,7 @@ module Cask
       @cask = cask
       @download = T.let(nil, T.nilable(Download))
       @download = Download.new(cask) if download
+      @download_failed = T.let(false, T::Boolean)
       @online = online
       @strict = strict
       @signing = signing
@@ -174,7 +177,7 @@ module Cask
     }
     def extract_artifacts(include_manual_installers: false, &_block)
       return unless online?
-      return if (download = self.download).nil?
+      return if download.nil? || @download_failed
 
       artifacts = cask.artifacts.select do |artifact|
         artifact.is_a?(Artifact::Pkg) ||
@@ -203,7 +206,7 @@ module Cask
 
       ohai "Downloading and extracting artifacts"
 
-      downloaded_path = download.fetch
+      return unless (downloaded_path = fetch_download)
 
       primary_container = UnpackStrategy.detect(downloaded_path, type: @cask.container&.type, merge_xattrs: true)
       return if primary_container.nil?
@@ -577,13 +580,7 @@ module Cask
 
     sig { void }
     def audit_download
-      return if (download = self.download).blank? || (url = cask.url).nil?
-
-      begin
-        download.fetch
-      rescue => e
-        add_error "download not possible: #{e}", location: url.location
-      end
+      fetch_download
     end
 
     sig { void }
@@ -1220,6 +1217,20 @@ module Cask
     end
 
     private
+
+    sig { returns(T.nilable(Pathname)) }
+    def fetch_download
+      return if @download_failed
+      return if (download = self.download).nil? || (url = cask.url).nil?
+
+      begin
+        download.fetch(timeout: DOWNLOAD_TIMEOUT)
+      rescue => e
+        @download_failed = true
+        add_error "download not possible: #{e}", location: url.location
+        nil
+      end
+    end
 
     sig { returns(T::Array[String]) }
     def appimage_target_basenames

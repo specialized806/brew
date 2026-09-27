@@ -71,6 +71,37 @@ RSpec.describe CurlDownloadStrategy do
     end
   end
 
+  describe "#fetch with a timeout and no cached download" do
+    let(:start_time) { Time.at(1_700_000_000) }
+
+    before do
+      allow(Time).to receive(:now).and_return(start_time)
+      allow(strategy).to receive(:curl_headers).and_raise(Timeout::Error)
+    end
+
+    it "bounds the request used to resolve the cache filename" do
+      expect(strategy).to receive(:curl_headers)
+        .with(url, wanted_headers: ["content-disposition"], deadline: start_time + 1)
+        .and_raise(Timeout::Error)
+
+      expect { strategy.fetch(timeout: 1) }.to raise_error(Timeout::Error)
+    end
+
+    it "clears the deadline after a failed fetch" do
+      begin
+        strategy.fetch(timeout: 1)
+      rescue Timeout::Error
+        nil
+      end
+
+      expect(strategy).to receive(:curl_headers)
+        .with(url, wanted_headers: ["content-disposition"], deadline: nil)
+        .and_return({ responses: })
+
+      strategy.basename
+    end
+  end
+
   describe "#fetch" do
     before do
       allow(Homebrew::EnvConfig).to receive(:artifact_domain).and_return(artifact_domain)

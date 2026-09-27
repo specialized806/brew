@@ -987,10 +987,40 @@ RSpec.describe Cask::Audit, :cask do
         end
       end
 
+      context "when the download times out" do
+        before do
+          allow(audit.download).to receive(:fetch).and_raise(Timeout::Error)
+          allow(ObjectSpace).to receive(:define_finalizer)
+        end
+
+        it "does not retry a failed download for extraction" do
+          expect(audit.download).to receive(:fetch).once.and_raise(Timeout::Error)
+
+          audit.audit_download
+          audit.extract_artifacts
+        end
+
+        it "continues auditing when extraction attempts the download first" do
+          allow(audit).to receive(:public_methods)
+            .and_return([:audit_artifact_case, :audit_download, :audit_version_special_characters])
+          expect(audit).to receive(:audit_version_special_characters)
+
+          audit.run!
+        end
+
+        it "reports the failure once when extraction attempts the download first" do
+          audit.extract_artifacts
+          audit.audit_download
+
+          expect(audit.errors.map { |error| error.fetch(:message) })
+            .to eq(["download not possible: Timeout::Error"])
+        end
+      end
+
       it "does not read quarantine metadata when quarantine support is unavailable" do
         downloaded_path = Pathname("/tmp/artifact-extraction.tar.gz")
         container = instance_double(UnpackStrategy, dependencies: [], extract_nestedly: nil)
-        allow(audit.download).to receive(:fetch).and_return(downloaded_path)
+        allow(audit.download).to receive(:fetch).with(timeout: 600).and_return(downloaded_path)
         allow(UnpackStrategy).to receive(:detect).and_return(container)
         allow(ObjectSpace).to receive(:define_finalizer)
         allow(Cask::Installer).to receive(:new)
@@ -2002,7 +2032,7 @@ RSpec.describe Cask::Audit, :cask do
 
       context "when the download succeeds" do
         it "passes" do
-          expect(download_double).to receive(:fetch).and_return(Pathname.new("/tmp/test.zip"))
+          expect(download_double).to receive(:fetch).with(timeout: 600).and_return(Pathname.new("/tmp/test.zip"))
           expect(run).to pass
         end
       end
@@ -2011,6 +2041,16 @@ RSpec.describe Cask::Audit, :cask do
         it "fails" do
           expect(download_double).to receive(:fetch).and_raise(StandardError.new(message))
           expect(run).to error_with(/#{message}/)
+        end
+      end
+
+      context "when the download times out" do
+        before do
+          allow(download_double).to receive(:fetch).with(timeout: 600).and_raise(Timeout::Error)
+        end
+
+        it "fails the audit" do
+          expect(run).to error_with(/download not possible: .*Timeout/)
         end
       end
     end
