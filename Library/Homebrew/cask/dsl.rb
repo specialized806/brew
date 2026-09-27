@@ -692,7 +692,7 @@ module Cask
     sig {
       params(
         strings: String,
-        block:   T.nilable(T.proc.returns(T.nilable(T.any(Symbol, String)))),
+        block:   T.nilable(T.proc.bind(DSL::Caveats).returns(T.nilable(T.any(Symbol, String)))),
       ).returns(T.any(String, DSL::Caveats))
     }
     def caveats(*strings, &block)
