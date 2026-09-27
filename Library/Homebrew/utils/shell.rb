@@ -115,7 +115,7 @@ module Utils
       when :pwsh
         "$env:#{key} = #{pwsh_quote(value)}"
       when :rc
-        "#{key}=(#{sh_quote(value)})"
+        "#{key}=(#{rc_quote(value)})"
       when :csh, :tcsh
         "setenv #{key} #{csh_quote(value)};"
       end
@@ -152,7 +152,7 @@ module Utils
       when :pwsh
         "#{pwsh_quote("$env:#{variable} = #{pwsh_quote(value)}")} >> #{profile}"
       when :rc
-        "echo #{sh_single_quote("#{variable}=(#{sh_quote(value)})")} >> #{profile}"
+        "echo #{rc_quote("#{variable}=(#{rc_quote(value)})")} >> #{profile}"
       when :csh, :tcsh
         "echo #{sh_single_quote("setenv #{variable} #{csh_quote(value)}")} >> #{profile}"
       when :fish
@@ -168,7 +168,7 @@ module Utils
       when :pwsh
         "#{pwsh_quote("$env:PATH = #{pwsh_quote(path)} + \":$env:PATH\"")} >> #{profile}"
       when :rc
-        "echo #{sh_single_quote("path=(#{sh_quote(path)} $path)")} >> #{profile}"
+        "echo #{rc_quote("path=(#{rc_quote(path)} $path)")} >> #{profile}"
       when :csh, :tcsh
         "echo #{sh_single_quote("setenv PATH #{csh_quote(path)}:$PATH")} >> #{profile}"
       when :fish
@@ -220,6 +220,13 @@ module Utils
     # nothing else, so one pass covers `$`, `"` and backticks too.
     sig { params(str: String).returns(String) }
     def pwsh_quote(str)
+      "'#{str.gsub("'", "''")}'"
+    end
+
+    # rc has no backslash escapes: only a single-quoted string is literal, and
+    # an embedded `'` is written `''`.
+    sig { params(str: String).returns(String) }
+    def rc_quote(str)
       "'#{str.gsub("'", "''")}'"
     end
 

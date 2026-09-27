@@ -130,6 +130,12 @@ RSpec.describe Utils::Shell do
       expect(described_class.export_value("HOMEBREW_FOO", "/opt/home brew"))
         .to eq("set -gx HOMEBREW_FOO /opt/home\\ brew")
     end
+
+    it "single-quotes an rc value" do
+      ENV["SHELL"] = "/usr/bin/rc"
+      expect(described_class.export_value("HOMEBREW_FOO", "it's a value"))
+        .to eq("HOMEBREW_FOO=('it''s a value')")
+    end
   end
 
   describe "::prepend_path_in_profile" do
@@ -171,6 +177,12 @@ RSpec.describe Utils::Shell do
       expect(described_class.prepend_path_in_profile(path))
         .to eq("'$env:PATH = ''#{path}'' + \":$env:PATH\"' >> #{described_class.profile}")
     end
+
+    it "single-quotes an rc path" do
+      ENV["SHELL"] = "/usr/bin/rc"
+      expect(described_class.prepend_path_in_profile("/opt/home brew/bin"))
+        .to eq("echo 'path=(''/opt/home brew/bin'' $path)' >> #{described_class.profile}")
+    end
   end
 
   describe "::set_variable_in_profile" do
@@ -190,6 +202,12 @@ RSpec.describe Utils::Shell do
       ENV["SHELL"] = "/usr/bin/pwsh"
       expect(described_class.set_variable_in_profile("HOMEBREW_FOO", "bar"))
         .to eq("'$env:HOMEBREW_FOO = ''bar''' >> #{described_class.profile}")
+    end
+
+    it "single-quotes an rc value" do
+      ENV["SHELL"] = "/usr/bin/rc"
+      expect(described_class.set_variable_in_profile("HOMEBREW_FOO", "a b"))
+        .to eq("echo 'HOMEBREW_FOO=(''a b'')' >> #{described_class.profile}")
     end
   end
 
