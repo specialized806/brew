@@ -1,9 +1,9 @@
 # typed: strict
 # frozen_string_literal: true
 
-require "vulns/semver"
+require "semver"
 
-RSpec.describe Homebrew::Vulns::Semver do
+RSpec.describe Homebrew::Semver do
   describe ".release_version" do
     it "rejects repeated version prefixes" do
       expect(%w[vv vV Vv VV].map { |prefix| described_class.release_version("#{prefix}1.0.0-rc.1") })
@@ -22,6 +22,18 @@ RSpec.describe Homebrew::Vulns::Semver do
       expect(["2026.2.22", "2026.2.22+build-2", "2026.2.22-02"].map do |version|
         described_class.release_version(version)
       end).to eq [nil, nil, nil]
+    end
+  end
+
+  describe ".prerelease?" do
+    it "detects a prerelease with a prefix and build metadata" do
+      expect(described_class.prerelease?("v2026.2.22-rc.1+build.2")).to be true
+    end
+
+    it "returns false for releases, metadata-only suffixes and invalid versions" do
+      expect(["2026.2.22", "2026.2.22+build-2", "not-a-version"].map do |version|
+        described_class.prerelease?(version)
+      end).to eq [false, false, false]
     end
   end
 

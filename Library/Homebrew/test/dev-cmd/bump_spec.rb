@@ -128,6 +128,37 @@ RSpec.describe Homebrew::DevCmd::Bump do
 
   it_behaves_like "parseable arguments"
 
+  def npm_version_info(latest)
+    {
+      latest:,
+      meta:   {
+        strategy: "Npm",
+        url:      {
+          strategy: "https://registry.npmjs.org/example-package/latest",
+        },
+      },
+    }
+  end
+
+  def stub_npm_registry(release_dates)
+    content = { "time" => release_dates.merge("created" => "2026-02-01T00:00:00.000Z") }.to_json
+    allow(Utils::Curl).to receive(:curl_output)
+      .with(
+        "--compressed",
+        "--fail-with-body",
+        "--location",
+        "--max-redirs",
+        "5",
+        "--silent",
+        "https://registry.npmjs.org/example-package",
+        connect_timeout: 15,
+        max_time:        55,
+        retries:         0,
+        timeout:         60,
+      )
+      .and_return([content, "", instance_double(Process::Status, success?: true)])
+  end
+
   describe "formula and cask", :cask, :integration_test do
     it "prints messages for HEAD-only Formulae and latest Casks" do
       content = <<~RUBY
@@ -488,6 +519,28 @@ RSpec.describe Homebrew::DevCmd::Bump do
       expect(version_info.cooldown_skipped_versions).to eq({ general: Version.new("1.2.4") })
     end
 
+    it "records the npm release skipped due to cooldown when a prerelease is chosen" do
+      f_prerelease = formula("prerelease_formula") do
+        T.bind(self, T.class_of(Formula))
+        desc "Prerelease formula"
+        url "https://brew.sh/test-1.2.3-next.1.tgz"
+        version "1.2.3-next.1"
+      end
+      allow(Homebrew::Livecheck::SkipConditions).to receive(:skip_information).and_return({})
+      allow(Homebrew::Livecheck).to receive(:latest_version).and_return(npm_version_info("1.2.4"))
+      allow(DateTime).to receive(:now).and_return(DateTime.parse("2026-04-04T12:00:00Z"))
+      stub_npm_registry(
+        "1.2.3-next.1" => "2026-02-01T00:00:00.000Z",
+        "1.2.4-next.2" => "2026-03-01T00:00:00.000Z",
+        "1.2.4"        => "2026-04-04T00:00:00.000Z",
+      )
+
+      version_info = bump.retrieve_versions_by_arch(
+        formula_or_cask: f_prerelease, repositories: [], name: "prerelease_formula",
+      )
+      expect(version_info.cooldown_skipped_versions).to eq({ general: Version.new("1.2.4") })
+    end
+
     it "records cooldown-skipped versions per architecture" do
       allow(c_multi_arch).to receive(:sourcefile_path).and_return(Pathname("multi_arch_cask.rb"))
       allow(Cask::CaskLoader).to receive(:load).and_return(c_multi_arch)
@@ -714,6 +767,29 @@ RSpec.describe Homebrew::DevCmd::Bump do
         .and_return([content, "", instance_double(Process::Status, success?: true)])
 
       expect(bump.version_with_cooldown(version_info, Version.new("1.2.2"))).to eq(Version.new("1.2.3"))
+    end
+
+    it "uses semver precedence for npm prerelease versions" do
+      allow(DateTime).to receive(:now).and_return(DateTime.parse("2026-04-04T12:00:00Z"))
+      stub_npm_registry(
+        "1.2.3-next.1" => "2026-02-01T00:00:00.000Z",
+        "1.2.4-next.2" => "2026-03-01T00:00:00.000Z",
+        "1.2.4"        => "2026-04-04T00:00:00.000Z",
+      )
+
+      expect(bump.version_with_cooldown(npm_version_info("1.2.4"), Version.new("1.2.3-next.1")))
+        .to eq(Version.new("1.2.4-next.2"))
+    end
+
+    it "checks the npm cooldown when the current version is a prerelease of the latest" do
+      allow(DateTime).to receive(:now).and_return(DateTime.parse("2026-04-04T12:00:00Z"))
+      stub_npm_registry(
+        "1.2.3-next.1" => "2026-02-01T00:00:00.000Z",
+        "1.2.3"        => "2026-04-02T00:00:00.000Z",
+      )
+
+      expect(bump.version_with_cooldown(npm_version_info("1.2.3"), Version.new("1.2.3-next.1")))
+        .to eq(Version.new("1.2.3"))
     end
   end
 

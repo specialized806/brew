@@ -6,6 +6,7 @@ require "abstract_command"
 require "bump_version_parser"
 require "livecheck/livecheck"
 require "release_cooldown"
+require "semver"
 require "utils/curl"
 require "utils/repology"
 
@@ -695,6 +696,13 @@ module Homebrew
         value.match?(LIVECHECK_MESSAGE_REGEX)
       end
 
+      sig { params(strategy: T.nilable(String), left: String, right: String).returns(T.nilable(Integer)) }
+      def compare_versions_for_strategy(strategy, left, right)
+        return Semver.compare(left, right) if strategy == "Npm"
+
+        Version.new(left) <=> Version.new(right)
+      end
+
       # Identifies the highest upstream version that has been released before
       # the cooldown interval.
       #
@@ -711,9 +719,10 @@ module Homebrew
 
         latest = Version.new(version_info[:latest]) if version_info[:latest]
         return unless latest
-        return if latest <= current
 
         strategy = T.cast(version_info.dig(:meta, :strategy), T.nilable(String))
+        return unless compare_versions_for_strategy(strategy, latest.to_s, current.to_s)&.positive?
+
         case strategy
         when "Npm"
           url = version_info.dig(:meta, :url, :strategy)&.delete_suffix("/latest")
@@ -729,17 +738,20 @@ module Homebrew
           return unless release_dates.present?
 
           current_str = current.to_s
-          current_is_prerelease = current_str.include?("-")
+          latest_str = latest.to_s
+          current_is_prerelease = Semver.prerelease?(current_str)
           cooldown_interval = (DateTime.now - Homebrew::RELEASE_COOLDOWN_DAYS)
           release_dates.sort_by { |_, date| date }.reverse_each do |version_str, date|
-            version = Version.new(version_str)
-            return version if version_str == current_str
-            next if (version > latest) || (version < current)
+            return Version.new(version_str) if version_str == current_str
 
-            # TODO: Properly handle prerelease version comparison
-            next if !current_is_prerelease && version_str.include?("-")
+            latest_comparison = compare_versions_for_strategy(strategy, version_str, latest_str)
+            next if latest_comparison.nil? || latest_comparison.positive?
 
-            return version if date < cooldown_interval
+            current_comparison = compare_versions_for_strategy(strategy, version_str, current_str)
+            next if current_comparison.nil? || current_comparison.negative?
+            next if !current_is_prerelease && Semver.prerelease?(version_str)
+
+            return Version.new(version_str) if date < cooldown_interval
           end
         when "Pypi"
           url = version_info.dig(:meta, :url, :strategy)
@@ -981,7 +993,10 @@ module Homebrew
         if !version_info.key?(:latest_throttled)
           latest = Version.new(version_info[:latest])
           cooldown_version = version_with_cooldown(version_info, current)
-          cooldown_skipped = (latest if cooldown_version && cooldown_version < latest)
+          cooldown_skipped = if cooldown_version
+            strategy = version_info.dig(:meta, :strategy)
+            latest if compare_versions_for_strategy(strategy, cooldown_version.to_s, latest.to_s)&.negative?
+          end
           [cooldown_version || latest, cooldown_skipped]
         elsif version_info[:latest_throttled].nil?
           ["unable to get throttled versions", nil]
