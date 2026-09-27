@@ -325,20 +325,13 @@ class GitHubRunnerMatrix
   sig { params(runner: GitHubRunner).returns(T::Array[TestRunnerFormula]) }
   def compatible_testing_formulae(runner)
     @compatible_testing_formulae[runner] ||= begin
-      platform = runner.platform
-      arch = runner.arch
       macos_version = runner.macos_version
+      tag = Utils::Bottles::Tag.new(system: macos_version&.to_sym || runner.platform, arch: runner.arch)
 
       transition_runner = BottleTransition.active? && macos_version&.to_sym == BottleTransition::MACOS
       testing_formulae = transition_runner ? transition_formulae : @testing_formulae
-      os = transition_runner ? BottleTransition::MACOS : platform
 
-      testing_formulae.select do |formula|
-        Homebrew::SimulateSystem.with(os:, arch: Homebrew::SimulateSystem.arch_symbols.fetch(arch)) do
-          simulated_formula = TestRunnerFormula.new(Formulary.factory(formula.name))
-          simulated_formula.compatible?(platform:, arch:, macos_version:)
-        end
-      end
+      testing_formulae.select { |formula| formula.compatible_with_tag?(tag) }
     end
   end
 
