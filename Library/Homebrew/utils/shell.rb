@@ -152,7 +152,7 @@ module Utils
       when :pwsh
         "#{pwsh_quote("$env:#{variable} = #{pwsh_quote(value)}")} >> #{profile}"
       when :rc
-        "echo #{sh_single_quote("#{variable}=(#{rc_quote(value)})")} >> #{profile}"
+        "echo #{rc_quote("#{variable}=(#{rc_quote(value)})")} >> #{profile}"
       when :csh, :tcsh
         "echo #{sh_single_quote("setenv #{variable} #{csh_quote(value)}")} >> #{profile}"
       when :fish
@@ -168,7 +168,7 @@ module Utils
       when :pwsh
         "#{pwsh_quote("$env:PATH = #{pwsh_quote(path)} + \":$env:PATH\"")} >> #{profile}"
       when :rc
-        "echo #{sh_single_quote("path=(#{rc_quote(path)} $path)")} >> #{profile}"
+        "echo #{rc_quote("path=(#{rc_quote(path)} $path)")} >> #{profile}"
       when :csh, :tcsh
         "echo #{sh_single_quote("setenv PATH #{csh_quote(path)}:$PATH")} >> #{profile}"
       when :fish
