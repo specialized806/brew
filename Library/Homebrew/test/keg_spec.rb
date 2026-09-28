@@ -439,6 +439,43 @@ RSpec.describe Keg do
     end
   end
 
+  describe "#uninstall" do
+    def write_aliases(keg, names)
+      (keg/"INSTALL_RECEIPT.json").write({ aliases: names }.to_json)
+    end
+
+    it "keeps a versioned opt alias that points at a newer keg" do
+      new_keg = setup_test_keg("foo", "2.0")
+      write_aliases(keg, ["foo@1.0"])
+
+      owned_alias = HOMEBREW_PREFIX/"opt/foo@1.0"
+      stale_alias = HOMEBREW_PREFIX/"opt/foo@0"
+      owned_alias.parent.mkpath
+      owned_alias.make_relative_symlink(HOMEBREW_CELLAR/"foo/2.0")
+      stale_alias.make_relative_symlink(HOMEBREW_CELLAR/"foo/2.0")
+
+      keg.uninstall
+
+      expect(owned_alias).to be_a_symlink
+      expect(owned_alias.realpath).to eq((HOMEBREW_CELLAR/"foo/2.0").realpath)
+      expect(stale_alias).not_to be_a_symlink
+
+      new_keg.uninstall
+      expect(owned_alias).not_to be_a_symlink
+    end
+
+    it "removes a versioned opt alias that pointed at the uninstalled keg" do
+      write_aliases(keg, ["foo@1.0"])
+      alias_link = HOMEBREW_PREFIX/"opt/foo@1.0"
+      alias_link.parent.mkpath
+      alias_link.make_relative_symlink(HOMEBREW_CELLAR/"foo/1.0")
+
+      keg.uninstall
+
+      expect(alias_link).not_to be_a_symlink
+    end
+  end
+
   describe "#optlink" do
     it "removes a stale versioned alias link" do
       setup_test_keg("foo", "0.9")
