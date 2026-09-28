@@ -156,7 +156,7 @@ module Utils
       when :csh, :tcsh
         "echo #{sh_single_quote("setenv #{variable} #{csh_quote(value)}")} >> #{profile}"
       when :fish
-        "echo #{sh_single_quote("set -gx #{variable} #{sh_quote(value)}")} >> #{profile}"
+        "echo #{fish_quote("set -gx #{variable} #{sh_quote(value)}")} >> #{profile}"
       end
     end
 
@@ -214,6 +214,13 @@ module Utils
     sig { params(str: String).returns(String) }
     def sh_single_quote(str)
       "'#{str.gsub("'", "'\\\\''")}'"
+    end
+
+    # Inside fish single quotes `\'` and `\\` are escapes, so both have to be
+    # escaped rather than closing and reopening the string as in POSIX shells.
+    sig { params(str: String).returns(String) }
+    def fish_quote(str)
+      "'#{str.gsub("\\", "\\\\\\\\").gsub("'", "\\\\'")}'"
     end
 
     # PowerShell single-quoted strings take a literal `'` as `''` and expand

@@ -209,6 +209,12 @@ RSpec.describe Utils::Shell do
       expect(described_class.set_variable_in_profile("HOMEBREW_FOO", "a b"))
         .to eq("echo 'HOMEBREW_FOO=(''a b'')' >> #{described_class.profile}")
     end
+
+    it "keeps the fish echo runnable when the value contains a single quote" do
+      ENV["SHELL"] = "/usr/local/bin/fish"
+      expect(described_class.set_variable_in_profile("HOMEBREW_FOO", "it's"))
+        .to eq("echo 'set -gx HOMEBREW_FOO it\\\\\\'s' >> #{described_class.profile}")
+    end
   end
 
   specify "::sh_single_quote" do
