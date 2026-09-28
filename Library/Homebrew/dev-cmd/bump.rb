@@ -249,9 +249,58 @@ module Homebrew
           end
         end
 
-        arch_options.each do |arch|
-          SimulateSystem.with(arch:) do
-            version_key = is_cask_with_blocks ? arch : :general
+        # Only resolve every platform for casks that already resolve to one version per operating system.
+        # Casks with a shared version resolve versions by architecture only.
+        platform_specific = false
+        system_options = arch_options.map { |arch| [nil, arch] }
+        if formula_or_cask.is_a?(Cask::Cask) && formula_or_cask.on_os_blocks_exist?
+          sourcefile_path = formula_or_cask.sourcefile_path
+          raise "unexpected nil sourcefile_path" unless sourcefile_path
+
+          current_os = Homebrew::SimulateSystem.current_os
+          macos = if MacOSVersion::SYMBOLS.include?(current_os)
+            current_os
+          else
+            MacOSVersion.new(HOMEBREW_MACOS_NEWEST_SUPPORTED).to_sym
+          end
+          detected_versions = {}
+          [[macos, :intel], [macos, :arm], [:linux, :intel], [:linux, :arm]].each do |os, arch|
+            SimulateSystem.with(os:, arch:) do
+              loaded_cask = Cask::CaskLoader.load(sourcefile_path)
+              next if os == :linux && !loaded_cask.supports_linux?
+              next if os != :linux && !loaded_cask.supports_macos?
+
+              supported_archs = loaded_cask.depends_on.arch&.filter_map { |dep| dep[:type] }&.uniq
+              next if supported_archs.present? && supported_archs.exclude?(arch)
+              next unless loaded_cask.version
+
+              version_key = (os == :linux) ? :"linux_#{arch}" : arch
+              detected_versions[version_key] = Version.new(loaded_cask.version)
+            end
+          end
+          macos_versions = detected_versions.values_at(:arm, :intel).compact.uniq
+          linux_versions = detected_versions.values_at(:linux_arm, :linux_intel).compact.uniq
+          if macos_versions.one? && linux_versions.one? && macos_versions != linux_versions
+            platform_specific = true
+            system_options = detected_versions.keys.map do |type|
+              if type.to_s.start_with?("linux_")
+                [:linux, type.to_s.delete_prefix("linux_").to_sym]
+              else
+                [macos, type]
+              end
+            end
+          end
+        end
+
+        system_options.each do |os, arch|
+          SimulateSystem.with(os:, arch:) do
+            version_key = if platform_specific
+              (os == :linux) ? :"linux_#{arch}" : arch
+            elsif is_cask_with_blocks
+              arch
+            else
+              :general
+            end
 
             # We reload the formula/cask here to ensure we're getting the
             # correct version for the current arch
@@ -301,11 +350,22 @@ module Homebrew
           end
         end
 
+        # Collapse identical platform results to `general`
+        # only when every platform returned a result.
+        if platform_specific
+          new_version_values = new_versions.values.compact
+          if new_version_values.size == system_options.size && new_version_values.uniq.one?
+            new_versions = { general: new_version_values.first }
+          end
+          cooldown_skipped_version_values = cooldown_skipped_versions.values
+          if cooldown_skipped_version_values.size == system_options.size && cooldown_skipped_version_values.uniq.one?
+            cooldown_skipped_versions = { general: cooldown_skipped_version_values.first }
+          end
         # Consolidate into a single general version when only one architecture
         # was simulated (e.g. `depends_on arch:` restricts to a single arch) or
         # when the arm and intel versions are identical, as happens with casks
         # where only the checksums differ.
-        if is_cask_with_blocks && arch_options.length == 1
+        elsif is_cask_with_blocks && arch_options.length == 1
           single_arch = arch_options[0]
           current_versions = { general: current_versions[single_arch] }
           new_versions = { general: new_versions[single_arch] }
@@ -323,14 +383,18 @@ module Homebrew
           end
         end
 
-        current_version = BumpVersionParser.new(general: current_versions[:general],
-                                                arm:     current_versions[:arm],
-                                                intel:   current_versions[:intel])
+        current_version = BumpVersionParser.new(general:     current_versions[:general],
+                                                arm:         current_versions[:arm],
+                                                intel:       current_versions[:intel],
+                                                linux_arm:   current_versions[:linux_arm],
+                                                linux_intel: current_versions[:linux_intel])
 
         begin
-          new_version = BumpVersionParser.new(general: new_versions[:general],
-                                              arm:     new_versions[:arm],
-                                              intel:   new_versions[:intel])
+          new_version = BumpVersionParser.new(general:     new_versions[:general],
+                                              arm:         new_versions[:arm],
+                                              intel:       new_versions[:intel],
+                                              linux_arm:   new_versions[:linux_arm],
+                                              linux_intel: new_versions[:linux_intel])
         rescue
           # When livecheck fails, we fail gracefully. Otherwise VersionParser
           # will raise a usage error
@@ -340,7 +404,9 @@ module Homebrew
         compare_versions(current_version, new_version, formula_or_cask) =>
           { multiple_versions:, newer_than_upstream: }
         if !multiple_versions[:current] && deprecated[:general].nil?
-          deprecated = { general: deprecated[:arm] || deprecated[:intel] || false }
+          deprecated = { general: deprecated[:arm] || deprecated[:intel] ||
+                                  deprecated[:linux_arm] || deprecated[:linux_intel] ||
+                                  false }
         end
 
         # Collect resource version info for formulae with resources that have explicit livecheck blocks
@@ -364,6 +430,14 @@ module Homebrew
                 !message?(new_version_intel) &&
                 (new_version_intel != current_version.intel)
             pull_request_version = new_version_intel.to_s
+          elsif (new_version_linux_arm = new_version.linux_arm) &&
+                !message?(new_version_linux_arm) &&
+                (new_version_linux_arm != current_version.linux_arm)
+            pull_request_version = new_version_linux_arm.to_s
+          elsif (new_version_linux_intel = new_version.linux_intel) &&
+                !message?(new_version_linux_intel) &&
+                (new_version_linux_intel != current_version.linux_intel)
+            pull_request_version = new_version_linux_intel.to_s
           elsif (new_version_general = new_version.general) &&
                 !message?(new_version_general) &&
                 (new_version_general != current_version.general)
@@ -437,7 +511,17 @@ module Homebrew
         end
 
         # Conditionally format output based on type of formula_or_cask
-        current_versions = if multiple_versions[:current]
+        current_versions = if multiple_versions[:current] &&
+                              (current_version.linux_arm || current_version.linux_intel)
+          [:arm, :intel, :linux_arm, :linux_intel].filter_map do |type|
+            version = current_version.public_send(type)
+            next unless version
+
+            "#{type.to_s.tr("_", " ")}: #{version}" \
+              "#{NEWER_THAN_UPSTREAM_MSG if newer_than_upstream[type]}" \
+              "#{" (deprecated)" if deprecated[type]}"
+          end.join("\n                          ")
+        elsif multiple_versions[:current]
           "arm:   #{current_version.arm || current_version.general}" \
             "#{NEWER_THAN_UPSTREAM_MSG if newer_than_upstream[:arm]}" \
             "#{" (deprecated)" if deprecated[:arm]}" \
@@ -451,7 +535,14 @@ module Homebrew
             "#{" (deprecated)" if deprecated[:general]}"
         end
 
-        new_versions = if multiple_versions[:new] && new_version.arm && new_version.intel
+        new_versions = if multiple_versions[:new] && (new_version.linux_arm || new_version.linux_intel)
+          [:arm, :intel, :linux_arm, :linux_intel].filter_map do |type|
+            version = new_version.public_send(type)
+            next unless version
+
+            "#{type.to_s.tr("_", " ")}: #{version}"
+          end.join("\n                          ")
+        elsif multiple_versions[:new] && new_version.arm && new_version.intel
           "arm:   #{new_version.arm}
                           intel: #{new_version.intel}"
         else
@@ -529,6 +620,8 @@ module Homebrew
         end
 
         if repology_latest.is_a?(Version) &&
+           current_version.general &&
+           new_version.general &&
            repology_latest > current_version.general &&
            repology_latest > new_version.general &&
            formula_or_cask.livecheck_defined?
@@ -595,7 +688,7 @@ module Homebrew
             end
             next if current_arch_version.blank? || new_arch_version <= current_arch_version
 
-            version_args << "--version-#{arch}=#{new_arch_version}"
+            version_args << "--version-#{arch.to_s.tr("_", "-")}=#{new_arch_version}"
           end
         elsif multiple_versions[:current]
           if (new_version_general = new_version.general) && !message?(new_version_general)
@@ -603,7 +696,7 @@ module Homebrew
               current_arch_version = current_version.public_send(arch)
               next if current_arch_version.blank? || new_version_general <= current_arch_version
 
-              version_args << "--version-#{arch}=#{new_version_general}"
+              version_args << "--version-#{arch.to_s.tr("_", "-")}=#{new_version_general}"
             end
           end
 

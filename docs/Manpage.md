@@ -3027,11 +3027,19 @@ supplied by the user.
 
 `--version-arm`
 
-: Specify the new cask *`version`* for the ARM architecture.
+: Specify the new cask *`version`* for macOS on ARM.
 
 `--version-intel`
 
-: Specify the new cask *`version`* for the Intel architecture.
+: Specify the new cask *`version`* for macOS on Intel.
+
+`--version-linux-arm`
+
+: Specify the new cask *`version`* for Linux on ARM.
+
+`--version-linux-intel`
+
+: Specify the new cask *`version`* for Linux on Intel.
 
 `--message`
 

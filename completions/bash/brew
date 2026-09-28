@@ -619,6 +619,8 @@ _brew_bump_cask_pr() {
       --version
       --version-arm
       --version-intel
+      --version-linux-arm
+      --version-linux-intel
       --write-only
       "
       return

@@ -407,6 +407,43 @@ RSpec.describe Homebrew::DevCmd::Bump do
       bump.retrieve_and_display_info_and_open_pr(c_basic, "basic-cask", [], ambiguous_cask: false)
     end
 
+    it "passes platform-specific versions to bump-cask-pr" do
+      version_info = Homebrew::DevCmd::Bump::VersionBumpInfo.new(
+        type:                    :cask,
+        deprecated:              { arm: false, intel: false, linux_intel: false },
+        multiple_versions:       { current: true, new: true },
+        version_name:            "cask version:   ",
+        current_version:         Homebrew::BumpVersionParser.new(
+          arm:         Version.new("1.0"),
+          intel:       Version.new("1.0"),
+          linux_intel: Version.new("1.5"),
+        ),
+        new_version:             Homebrew::BumpVersionParser.new(
+          arm:         Version.new("2.0"),
+          intel:       Version.new("2.0"),
+          linux_intel: Version.new("1.6"),
+        ),
+        repology_latest:         "not found",
+        newer_than_upstream:     { arm: false, intel: false, linux_intel: false },
+        duplicate_pull_requests: nil,
+        open_bump_pull_requests: nil,
+      )
+      allow(bump).to receive(:retrieve_versions_by_arch).and_return(version_info)
+
+      expect(bump).to receive(:system).with(
+        HOMEBREW_BREW_FILE,
+        "bump-cask-pr",
+        "basic-cask",
+        "--version-arm=2.0",
+        "--version-intel=2.0",
+        "--version-linux-intel=1.6",
+        "--no-browse",
+        "--message=Created by `brew bump`",
+      ).and_return(true)
+
+      bump.retrieve_and_display_info_and_open_pr(c_basic, "basic-cask", [], ambiguous_cask: false)
+    end
+
     it "notes when a newer upstream version was skipped due to release cooldown" do
       version_info = Homebrew::DevCmd::Bump::VersionBumpInfo.new(
         type:                      :formula,
@@ -486,6 +523,95 @@ RSpec.describe Homebrew::DevCmd::Bump do
           homepage "https://brew.sh"
         end
       RUBY
+    end
+
+    let(:c_per_os) do
+      path = mktmpdir/"per_os_cask.rb"
+      path.write <<~RUBY
+        cask "per_os_cask" do
+          arch arm: "arm64", intel: "x64"
+          os macos: "macos", linux: "linux"
+
+          on_macos do
+            version "1.0"
+            sha256 :no_check
+
+            app "Foo.app"
+          end
+          on_linux do
+            version "1.5"
+            sha256 :no_check
+
+            depends_on arch: :x86_64
+
+            binary "foo"
+          end
+
+          url "https://brew.sh/foo-\#{os}-\#{arch}-\#{version}.zip"
+          name "Foo"
+        end
+      RUBY
+      macos = MacOSVersion.new(HOMEBREW_MACOS_NEWEST_SUPPORTED).to_sym
+      Homebrew::SimulateSystem.with(os: macos, arch: :arm) { Cask::CaskLoader.load(path) }
+    end
+
+    it "resolves existing per-OS versions for each supported platform" do
+      allow(bump).to receive(:livecheck_result) do
+        if Homebrew::SimulateSystem.simulating_or_running_on_linux?
+          [Version.new("1.6"), nil]
+        else
+          [Version.new("2.0"), nil]
+        end
+      end
+
+      version_info = bump.retrieve_versions_by_arch(
+        formula_or_cask: c_per_os, repositories: [], name: "per-os-cask",
+      )
+      expect(version_info.new_version).to eq(Homebrew::BumpVersionParser.new(
+                                               arm:         Version.new("2.0"),
+                                               intel:       Version.new("2.0"),
+                                               linux_intel: Version.new("1.6"),
+                                             ))
+    end
+
+    it "does not emit a Linux bump when Linux livecheck returns no version" do
+      allow(bump).to receive(:livecheck_result) do
+        if Homebrew::SimulateSystem.simulating_or_running_on_linux?
+          [nil, nil]
+        else
+          [Version.new("2.0"), nil]
+        end
+      end
+
+      version_info = bump.retrieve_versions_by_arch(
+        formula_or_cask: c_per_os, repositories: [], name: "per-os-cask",
+      )
+      expect(
+        bump.version_args_for_bump(
+          current_version:   version_info.current_version,
+          new_version:       version_info.new_version,
+          multiple_versions: version_info.multiple_versions,
+          name:              "per-os-cask",
+        ),
+      ).to eq(["--version-arm=2.0", "--version-intel=2.0"])
+    end
+
+    it "keeps an incomplete cooldown result platform-specific" do
+      allow(bump).to receive(:livecheck_result) do
+        if Homebrew::SimulateSystem.simulating_or_running_on_linux?
+          [Version.new("1.6"), nil]
+        else
+          [Version.new("2.0"), Version.new("2.1")]
+        end
+      end
+
+      version_info = bump.retrieve_versions_by_arch(
+        formula_or_cask: c_per_os, repositories: [], name: "per-os-cask",
+      )
+      expect(version_info.cooldown_skipped_versions).to eq({
+        arm:   Version.new("2.1"),
+        intel: Version.new("2.1"),
+      })
     end
 
     it "simulates only arm and consolidates to a general version when `depends_on arch:` restricts to arm-only" do
@@ -657,6 +783,24 @@ RSpec.describe Homebrew::DevCmd::Bump do
                                    multiple_versions: { current: false, new: true },
                                    name:              "foo"),
       ).to eq(["--version-arm=1.2.6"])
+    end
+
+    it "emits Linux platform arguments with hyphenated names" do
+      current_version = Homebrew::BumpVersionParser.new(
+        arm:         "1.0",
+        intel:       "1.0",
+        linux_intel: "1.5",
+      )
+      new_version = Homebrew::BumpVersionParser.new(
+        arm:         "2.0",
+        intel:       "2.0",
+        linux_intel: "1.6",
+      )
+
+      expect(
+        bump.version_args_for_bump(current_version:, new_version:,
+                                   multiple_versions: { current: true, new: true }, name: "foo"),
+      ).to eq(["--version-arm=2.0", "--version-intel=2.0", "--version-linux-intel=1.6"])
     end
   end
 
