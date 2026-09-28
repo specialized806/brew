@@ -1,6 +1,8 @@
 # typed: strict
 # frozen_string_literal: true
 
+require "test_runner_formula"
+
 module Homebrew
   module TestBot
     class FormulaeDependents < TestFormulae
@@ -217,8 +219,11 @@ module Homebrew
         installable_bottles.each do |formula_name|
           formula = Formulary.factory(formula_name)
           next if formula.latest_version_installed?
+          next unless TestRunnerFormula.new(formula).compatible_with_tag?(Utils::Bottles.tag)
 
           install_formula_from_bottle!(formula_name, testing_formulae_dependents: true, dry_run: args.dry_run?)
+        rescue FormulaUnavailableError, TapFormulaAmbiguityError => e
+          opoo e
         end
       end
 

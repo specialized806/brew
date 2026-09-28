@@ -265,6 +265,46 @@ RSpec.describe TestRunnerFormula do
     end
   end
 
+  describe "#compatible_with_tag?" do
+    let(:platform_specific_software) { described_class.new(Formulary.factory("platform-specific-software")) }
+
+    before do
+      allow(Formulary).to receive(:factory).with("platform-specific-software") do
+        formula "platform-specific-software" do
+          T.bind(self, T.class_of(Formula))
+          url "https://brew.sh/platform-specific-software-1.0.tar.gz"
+
+          on_linux do
+            depends_on arch: :x86_64
+          end
+
+          on_sequoia :or_older do
+            depends_on arch: :x86_64
+          end
+        end
+      end
+    end
+
+    context "when a formula requires an Intel architecture only on Linux" do
+      it "returns false for ARM64 Linux" do
+        expect(platform_specific_software.compatible_with_tag?(Utils::Bottles::Tag.from_symbol(:arm64_linux)))
+          .to be(false)
+      end
+    end
+
+    context "when a formula requires an Intel architecture only on older macOS versions" do
+      it "returns true for newer ARM64 macOS" do
+        expect(platform_specific_software.compatible_with_tag?(Utils::Bottles::Tag.from_symbol(:arm64_tahoe)))
+          .to be(true)
+      end
+
+      it "returns false for older ARM64 macOS" do
+        expect(platform_specific_software.compatible_with_tag?(Utils::Bottles::Tag.from_symbol(:arm64_sequoia)))
+          .to be(false)
+      end
+    end
+  end
+
   describe "#dependents" do
     let(:current_system) do
       current_arch = case Homebrew::SimulateSystem.current_arch

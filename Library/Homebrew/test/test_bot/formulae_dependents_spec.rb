@@ -1,6 +1,7 @@
 # typed: true
 # frozen_string_literal: true
 
+require "dev-cmd/test-bot"
 require "test_bot"
 
 RSpec.describe Homebrew::TestBot::FormulaeDependents do
@@ -52,6 +53,61 @@ RSpec.describe Homebrew::TestBot::FormulaeDependents do
       end
 
       expect(formulae_dependents.dependents_for_shard([[dependent, dependent.deps.to_a]], "2/2")).to be_empty
+    end
+  end
+
+  describe "#install_formulae_if_needed_from_bottles!" do
+    subject(:formulae_dependents) do
+      Class.new(described_class) do
+        T.bind(self, T.class_of(Homebrew::TestBot::FormulaeDependents))
+        public :install_formulae_if_needed_from_bottles!
+      end.new(tap: nil, git: nil, dry_run: false, fail_fast: false, verbose: false)
+    end
+
+    let(:args) { Homebrew::Cmd::TestBotCmd.new([]).args }
+
+    before do
+      allow(Utils::Bottles).to receive(:tag).and_return(Utils::Bottles::Tag.from_symbol(:arm64_linux))
+
+      intel_only = formula "intel-only" do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/intel-only-1.0.tar.gz"
+        depends_on arch: :x86_64
+      end
+      portable = formula "portable" do
+        T.bind(self, T.class_of(Formula))
+        url "https://brew.sh/portable-1.0.tar.gz"
+      end
+
+      stub_formula_loader intel_only, call_original: true
+      stub_formula_loader portable
+    end
+
+    it "installs bottles for formulae this runner can build" do
+      expect(formulae_dependents).to receive(:install_formula_from_bottle!)
+        .with("portable", testing_formulae_dependents: true, dry_run: false)
+
+      formulae_dependents.install_formulae_if_needed_from_bottles!(["portable"], args:)
+    end
+
+    it "skips bottles for formulae this runner cannot build" do
+      expect(formulae_dependents).not_to receive(:install_formula_from_bottle!)
+
+      formulae_dependents.install_formulae_if_needed_from_bottles!(["intel-only"], args:)
+    end
+
+    it "warns about formulae that cannot be loaded" do
+      expect { formulae_dependents.install_formulae_if_needed_from_bottles!(["unavailable"], args:) }
+        .to output(/No available formula with the name "unavailable"/).to_stderr
+    end
+
+    it "installs bottles after formulae that cannot be loaded" do
+      allow(formulae_dependents).to receive(:opoo)
+
+      expect(formulae_dependents).to receive(:install_formula_from_bottle!)
+        .with("portable", testing_formulae_dependents: true, dry_run: false)
+
+      formulae_dependents.install_formulae_if_needed_from_bottles!(["unavailable", "portable"], args:)
     end
   end
 

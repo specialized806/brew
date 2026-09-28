@@ -85,6 +85,18 @@ class TestRunnerFormula
     !!public_send(:"#{arch}_compatible?")
   end
 
+  # Reloads the formula as the runner building `tag` bottles would so its `on_*` blocks apply.
+  sig { params(tag: Utils::Bottles::Tag).returns(T::Boolean) }
+  def compatible_with_tag?(tag)
+    platform = tag.linux? ? :linux : :macos
+    arch = tag.standardized_arch
+    macos_version = tag.to_macos_version if tag.macos?
+
+    Homebrew::SimulateSystem.with(os: tag.system, arch: Homebrew::SimulateSystem.arch_symbols.fetch(arch)) do
+      TestRunnerFormula.new(Formulary.factory(formula.full_name)).compatible?(platform:, arch:, macos_version:)
+    end
+  end
+
   sig {
     params(
       platform:      Symbol,
