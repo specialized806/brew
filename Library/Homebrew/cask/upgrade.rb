@@ -511,6 +511,7 @@ module Cask
             odebug "Rollback backtrace:", rollback_backtrace
           end
         end
+        new_cask_installer.purge_staged_download
         raise e
       end
 

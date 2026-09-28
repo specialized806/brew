@@ -33,6 +33,7 @@ HOMEBREW_PINNED_KEGS   = (HOMEBREW_PREFIX/"var/homebrew/pinned").freeze
 HOMEBREW_PINNED_CASKS  = (HOMEBREW_PREFIX/"var/homebrew/pinned_casks").freeze
 HOMEBREW_LOCKS         = (HOMEBREW_PREFIX/"var/homebrew/locks").freeze
 HOMEBREW_TEMP_CELLAR   = (HOMEBREW_PREFIX/"var/homebrew/tmp/.cellar").freeze
+HOMEBREW_TEMP_CASKROOM = (HOMEBREW_PREFIX/"var/homebrew/tmp/.caskroom").freeze
 HOMEBREW_CELLAR        = (HOMEBREW_PREFIX/"Cellar").freeze
 HOMEBREW_LOGS          = (HOMEBREW_PREFIX.parent/"logs").freeze
 HOMEBREW_TEMP          = Pathname(

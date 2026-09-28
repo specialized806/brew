@@ -214,9 +214,13 @@ on_request: true)
       puts summary
       end_time = Time.now
       Homebrew.messages.package_installed(@cask.token, end_time - start_time)
-    rescue
-      restore_backup
-      raise
+    rescue => e
+      begin
+        restore_backup
+      ensure
+        purge_staged_download
+      end
+      raise e
     end
 
     sig { void }
@@ -809,6 +813,13 @@ on_request: true)
         gain_permissions_remove(subdir)
       end
       rmdir_if_possible(bmp)
+    end
+
+    sig { void }
+    def purge_staged_download
+      downloader.purge_staged_from_download_queue(command: @command) if @defer_fetch
+    rescue => e
+      opoo "Removing the pre-staged download of #{@cask.token} also failed: #{e.message}"
     end
 
     sig { void }

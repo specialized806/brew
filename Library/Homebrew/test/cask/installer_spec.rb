@@ -847,6 +847,62 @@ RSpec.describe Cask::Installer, :cask do
       expect(cask).to be_installed
     end
 
+    it "removes the pre-staged download if the install failed before staging" do
+      cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      download_queue = Homebrew::DownloadQueue.new(pour: true)
+      installer = described_class.new(cask, download_queue:, defer_fetch: true)
+
+      begin
+        installer.enqueue_downloads
+        download_queue.fetch
+      ensure
+        download_queue.shutdown
+      end
+      expect(installer.downloader.staged_path_from_download_queue_marker).to exist
+
+      allow(installer).to receive(:satisfy_cask_and_formula_dependencies)
+        .and_raise(Cask::CaskError, "dependency failed")
+
+      expect { installer.install }.to raise_error(Cask::CaskError, "dependency failed")
+      expect(installer.downloader.staged_path_from_download_queue).not_to exist
+      expect(installer.downloader.staged_path_from_download_queue_marker).not_to exist
+    end
+
+    it "removes the pre-staged download if restoring the backup also failed" do
+      cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      download_queue = Homebrew::DownloadQueue.new(pour: true)
+      installer = described_class.new(cask, download_queue:, defer_fetch: true)
+
+      begin
+        installer.enqueue_downloads
+        download_queue.fetch
+      ensure
+        download_queue.shutdown
+      end
+      expect(installer.downloader.staged_path_from_download_queue_marker).to exist
+
+      allow(installer).to receive(:satisfy_cask_and_formula_dependencies)
+        .and_raise(Cask::CaskError, "dependency failed")
+      allow(installer).to receive(:restore_backup).and_raise("restore failed")
+
+      expect { installer.install }.to raise_error(RuntimeError, "restore failed")
+      expect(installer.downloader.staged_path_from_download_queue).not_to exist
+      expect(installer.downloader.staged_path_from_download_queue_marker).not_to exist
+    end
+
+    it "reports the original install error if removing the pre-staged download fails" do
+      cask = Cask::CaskLoader.load(cask_path("local-caffeine"))
+      installer = described_class.new(cask, defer_fetch: true)
+
+      allow(installer).to receive(:satisfy_cask_and_formula_dependencies)
+        .and_raise(Cask::CaskError, "dependency failed")
+      allow(installer.downloader).to receive(:purge_staged_from_download_queue).and_raise("purge failed")
+
+      expect { installer.install }
+        .to raise_error(Cask::CaskError, "dependency failed")
+        .and output(/purge failed/).to_stderr
+    end
+
     it "stages nested containers for API-loaded casks" do
       container_dir = mktmpdir
       FileUtils.cp(TEST_FIXTURE_DIR/"cask/caffeine.zip", container_dir/"NestedApp.zip")

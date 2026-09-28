@@ -143,7 +143,7 @@ module Cask
 
     sig { override.returns(Pathname) }
     def staged_path_from_download_queue
-      HOMEBREW_PREFIX/"var/homebrew/tmp/.caskroom"/cask.staged_path.relative_path_from(Caskroom.path)
+      HOMEBREW_TEMP_CASKROOM/cask.staged_path.relative_path_from(Caskroom.path)
     end
 
     sig { returns(Pathname) }
