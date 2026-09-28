@@ -299,6 +299,7 @@ module Homebrew
           "sentinel.dylib", # SentinelOne
           "sentinel-*.dylib", # SentinelOne
           "libASAF.dylib", # Apple Immersive Audio SDK
+          "JPKI*.dylib", # JPKI (Japanese My Number Card) client
         ]
 
         msg = __check_stray_files "/usr/local/lib", "*.dylib", allow_list, <<~EOS
