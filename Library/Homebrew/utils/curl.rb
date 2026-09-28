@@ -283,7 +283,10 @@ module Utils
         curl_version = out[/curl (\d+(?:\.\d+)+)/, 1]
         return result if Gem::Version.new(curl_version) >= Gem::Version.new("7.60.0")
 
-        return curl_with_workarounds(*args, "--http1.1", **command_options, **options)
+        return curl_with_workarounds(
+          *args, "--http1.1",
+          timeout: Utils::Timer.remaining!(end_time), **command_options, **options
+        )
       end
 
       result
@@ -302,15 +305,18 @@ module Utils
       result
     end
 
+    # `timeout` covers the resume probe and the download together.
     sig {
       params(
         args:        String,
         to:          T.any(Pathname, String),
         try_partial: T::Boolean,
+        timeout:     T.nilable(T.any(Integer, Float)),
         options:     T.untyped,
       ).returns(T.nilable(SystemCommand::Result))
     }
-    def curl_download(*args, to:, try_partial: false, **options)
+    def curl_download(*args, to:, try_partial: false, timeout: nil, **options)
+      end_time = Time.now + timeout if timeout
       destination = Pathname(to)
       destination.dirname.mkpath
 
@@ -318,7 +324,9 @@ module Utils
 
       if try_partial && destination.exist?
         headers = begin
-          parsed_output = curl_headers(*args, **options, wanted_headers: ["accept-ranges"])
+          parsed_output = curl_headers(
+            *args, **options, wanted_headers: ["accept-ranges"], deadline: end_time
+          )
           parsed_output.fetch(:responses).last&.fetch(:headers) || {}
         rescue ErrorDuringExecution
           # Ignore errors here and let actual download fail instead.
@@ -340,7 +348,7 @@ module Utils
 
       args = ["--remote-time", "--output", destination.to_s, *args]
 
-      curl(*args, **options)
+      curl(*args, **options, timeout: Utils::Timer.remaining!(end_time))
     end
 
     # Run after `Tty.collapse_carriage_returns`; a bar-only line becomes empty.
@@ -354,14 +362,17 @@ module Utils
       curl_with_workarounds(*args, print_stderr: false, show_output: true, **options)
     end
 
+    # `timeout` applies to each curl process; `deadline` bounds all requests.
     sig {
       params(
         args:           String,
         wanted_headers: T::Array[String],
+        timeout:        T.nilable(T.any(Integer, Float)),
+        deadline:       T.nilable(Time),
         options:        T.untyped,
       ).returns(T::Hash[Symbol, T.untyped])
     }
-    def curl_headers(*args, wanted_headers: [], **options)
+    def curl_headers(*args, wanted_headers: [], timeout: nil, deadline: nil, **options)
       base_args = ["--fail", "--location", "--silent"]
       get_retry_args = []
       if (is_post_request = args.include?("POST"))
@@ -375,7 +386,10 @@ module Utils
       get_retry_args << "--http1.1" if curl_version >= Version.new("8.7") && curl_version < Version.new("8.10")
 
       [[], get_retry_args].each do |request_args|
-        result = curl_output(*base_args, *request_args, *args, **options)
+        result = curl_output(
+          *base_args, *request_args, *args, **options,
+          timeout: [timeout, Utils::Timer.remaining!(deadline)].compact.min
+        )
 
         # We still receive usable headers with certain non-successful exit
         # statuses, so we special case them below.

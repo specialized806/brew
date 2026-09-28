@@ -781,6 +781,86 @@ RSpec.describe "Utils::Curl" do
     end
   end
 
+  describe "curl request deadlines" do
+    let(:url) { "https://example.com/download.zip" }
+    let(:start_time) { Time.at(1_700_000_000) }
+    let(:result) do
+      instance_double(SystemCommand::Result, success?: true, stdout: "HTTP/1.1 200 OK\r\n\r\n")
+    end
+
+    before do
+      allow(Time).to receive(:now).and_return(start_time)
+      allow(self).to receive(:curl_version).and_return(Version.new("8.10"))
+    end
+
+    context "when an unexpected EOF requires an HTTP/1.1 retry" do
+      let(:retry_time) { start_time + 2 }
+
+      before do
+        allow(self).to receive(:system_command).and_return(
+          instance_double(SystemCommand::Result, success?: false, exit_status: 56,
+                                                status: instance_double(Process::Status, exitstatus: 56)),
+        )
+        allow(self).to receive(:curl_output).with("-V") do
+          allow(Time).to receive(:now).and_return(retry_time)
+          instance_double(SystemCommand::Result, stdout: "curl 7.59.0\nFeatures: HTTP2\n")
+        end
+      end
+
+      it "passes the remaining timeout to the retry" do
+        expect(self).to receive(:system_command).with(
+          anything, hash_including(args: array_including("--http1.1"), timeout: 1)
+        ).and_return(result)
+
+        curl_with_workarounds(url, timeout: 3)
+      end
+
+      context "when the deadline has expired" do
+        let(:retry_time) { start_time + 3 }
+
+        it "raises instead of starting the retry" do
+          expect { curl_with_workarounds(url, timeout: 3) }.to raise_error(Timeout::Error)
+        end
+      end
+    end
+
+    it "shares an explicit deadline between HEAD and its GET fallback" do
+      timeouts = []
+      allow(self).to receive(:curl_output) do |*_args, **options|
+        timeouts << options[:timeout]
+        allow(Time).to receive(:now).and_return(start_time + 2)
+        result
+      end
+
+      curl_headers(url, wanted_headers: ["content-disposition"], deadline: start_time + 3)
+
+      expect(timeouts).to eq([3, 1])
+    end
+
+    it "does not start the GET fallback after the deadline" do
+      allow(self).to receive(:curl_output) do
+        allow(Time).to receive(:now).and_return(start_time + 3)
+        result
+      end
+
+      expect { curl_headers(url, wanted_headers: ["content-disposition"], deadline: start_time + 3) }
+        .to raise_error(Timeout::Error)
+    end
+
+    it "subtracts the resume probe from the download timeout" do
+      destination = mktmpdir/"download.zip"
+      destination.write("partial")
+      allow(self).to receive(:curl_headers)
+        .with(any_args, wanted_headers: ["accept-ranges"], deadline: start_time + 3) do
+          allow(Time).to receive(:now).and_return(start_time + 2)
+          { responses: [{ headers: { "accept-ranges" => "bytes" } }] }
+        end
+      expect(self).to receive(:curl).with(any_args, timeout: 1)
+
+      curl_download(url, to: destination, try_partial: true, timeout: 3)
+    end
+  end
+
   describe "::http_status_ok?" do
     it "returns `true` when `status` is 1xx or 2xx" do
       expect(http_status_ok?("200")).to be(true)

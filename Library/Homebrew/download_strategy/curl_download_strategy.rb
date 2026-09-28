@@ -22,6 +22,7 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
     @mirrors = T.let(meta.fetch(:mirrors, []), T::Array[String])
     @file_size = T.let(nil, T.nilable(Integer))
     @last_modified = T.let(nil, T.nilable(Time))
+    @fetch_end_time = T.let(nil, T.nilable(Time))
 
     # Merge `:header` with `:headers`.
     if (header = meta.delete(:header))
@@ -37,11 +38,11 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
   # @api public
   sig { override.params(timeout: T.nilable(T.any(Float, Integer))).void }
   def fetch(timeout: nil)
-    end_time = Time.now + timeout if timeout
+    @fetch_end_time = Time.now + timeout if timeout
 
     download_lock = DownloadLock.new(temporary_path)
     begin
-      download_lock.lock_or_wait(quiet: quiet?, timeout: Utils::Timer.remaining(end_time))
+      download_lock.lock_or_wait(quiet: quiet?, timeout: Utils::Timer.remaining(@fetch_end_time))
 
       urls = [url, *mirrors]
 
@@ -85,7 +86,7 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
         cached_location_valid = cached_location.exist?
 
         resolved_url, _, last_modified, @file_size, content_type, is_redirection = begin
-          resolve_url_basename_time_file_size(url, timeout: Utils::Timer.remaining!(end_time))
+          resolve_url_basename_time_file_size(url, timeout: Utils::Timer.remaining!(@fetch_end_time))
         rescue ErrorDuringExecution
           raise unless cached_location_valid
         end
@@ -125,7 +126,7 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
           raise "Could not resolve #{url}" if resolved_url.nil?
 
           begin
-            _fetch(url:, resolved_url:, timeout: Utils::Timer.remaining!(end_time))
+            _fetch(url:, resolved_url:, timeout: Utils::Timer.remaining!(@fetch_end_time))
           rescue ErrorDuringExecution => e
             clean_stderr = strip_progress_bar(Tty.collapse_carriage_returns(e.stderr)).strip
             raise CurlDownloadStrategyError.new(url, clean_stderr)
@@ -140,12 +141,14 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
 
         puts "Trying a mirror..."
         retry
-      rescue Timeout::Error => e
-        raise Timeout::Error, "Timed out downloading #{self.url}: #{e}"
       end
     ensure
       download_lock.unlock(unlink: true)
     end
+  rescue Timeout::Error => e
+    raise Timeout::Error, "Timed out downloading #{self.url}: #{e}"
+  ensure
+    @fetch_end_time = nil
   end
 
   sig { override.returns(T.nilable(Integer)) }
@@ -197,7 +200,8 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
 
   sig { params(timeout: T.nilable(T.any(Float, Integer))).returns([String, String]) }
   def resolved_url_and_basename(timeout: nil)
-    resolved_url, basename, = resolve_url_basename_time_file_size(url, timeout: nil)
+    timeout ||= Utils::Timer.remaining!(@fetch_end_time)
+    resolved_url, basename, = resolve_url_basename_time_file_size(url, timeout:)
     [resolved_url, basename]
   end
 
@@ -207,7 +211,9 @@ class CurlDownloadStrategy < AbstractFileDownloadStrategy
     return @resolved_info_cache.fetch(url) if @resolved_info_cache.include?(url)
 
     begin
-      parsed_output = curl_headers(url.to_s, wanted_headers: ["content-disposition"], timeout:)
+      parsed_output = curl_headers(
+        url.to_s, wanted_headers: ["content-disposition"], deadline: (Time.now + timeout if timeout)
+      )
     rescue ErrorDuringExecution
       return [url, parse_basename(url), nil, nil, nil, false]
     end

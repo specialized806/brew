@@ -187,6 +187,24 @@ RSpec.describe Homebrew::Livecheck::Strategy do
       expect(strategy.page_headers(url)).to eq([responses.first[:headers]])
     end
 
+    it "allows a slow HEAD request and GET fallback within their individual timeouts" do
+      start_time = Time.at(1_700_000_000)
+      allow(Time).to receive(:now).and_return(start_time)
+      allow(strategy).to receive(:curl_version).and_return(Version.new("8.10"))
+      allow(strategy).to receive(:curl_output) do |*args, **options|
+        raise Timeout::Error if options.fetch(:timeout) < 12
+
+        allow(Time).to receive(:now).and_return(Time.now + 12)
+        headers = "HTTP/1.1 200 OK\r\n"
+        headers += "Content-Disposition: attachment; filename=example-1.2.3.zip\r\n" if args.include?("GET")
+        instance_double(SystemCommand::Result, success?: true, stdout: "#{headers}\r\n")
+      end
+
+      expect(strategy.page_headers(url)).to eq([
+        { "content-disposition" => "attachment; filename=example-1.2.3.zip" },
+      ])
+    end
+
     it "only allows HTTPS redirects" do
       expect(strategy).to receive(:curl_headers).with(
         "--max-redirs",
