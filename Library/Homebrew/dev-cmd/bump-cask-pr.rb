@@ -231,27 +231,28 @@ module Homebrew
         end
       end
 
-      sig { params(cask: Cask::Cask, new_version: BumpVersionParser).returns(T::Array[[Symbol, Symbol]]) }
+      sig {
+        params(cask: Cask::Cask, new_version: BumpVersionParser).returns(T::Array[[Symbol, Symbol, Symbol, Symbol]])
+      }
       def generate_system_options(cask, new_version)
-        current_os = Homebrew::SimulateSystem.current_os
-        current_os_is_macos = MacOSVersion::SYMBOLS.include?(current_os)
-        newest_macos = MacOSVersion.new(HOMEBREW_MACOS_NEWEST_SUPPORTED).to_sym
+        systems = { macos: default_cask_os, linux: :linux }
+        system_versions = BumpVersionParser::VERSION_PLATFORMS.filter_map do |version_type, (system, arch)|
+          version = new_version.public_send(version_type)
+          next unless version
 
-        macos = current_os_is_macos ? current_os : newest_macos
-        system_versions = []
-        system_versions << [macos, :arm, new_version.arm] if new_version.arm
-        system_versions << [macos, :intel, new_version.intel] if new_version.intel
-        system_versions << [:linux, :arm, new_version.linux_arm] if new_version.linux_arm
-        system_versions << [:linux, :intel, new_version.linux_intel] if new_version.linux_intel
+          [systems.fetch(system), arch, system, version_type, version]
+        end
         if system_versions.present?
           # Sort platform-specific values in descending version order
           # to avoid replacing a value that is still needed to identify another platform's stanza.
           # For example, if ARM is 1.2.3, Intel moves to 1.2.3 and ARM moves to 1.2.4,
           # processing Intel first could replace both 1.2.3 stanzas.
-          sorted_system_versions = system_versions.sort_by do |_, _, version|
-            Livecheck::LivecheckVersion.create(cask, Version.new(version || Version::NULL))
+          sorted_system_versions = system_versions.sort_by do |_, _, _, _, version|
+            Livecheck::LivecheckVersion.create(cask, Version.new(version))
           end
-          return sorted_system_versions.reverse_each.map { |os, arch, _| [os, arch] }
+          return sorted_system_versions.reverse_each.map do |os, arch, system, version_type, _|
+            [os, arch, system, version_type]
+          end
         end
 
         # NOTE: We substitute the newest macOS (e.g. `:sequoia`) in place of
@@ -261,12 +262,8 @@ module Homebrew
 
         arch_values = []
         if cask.on_system_blocks_exist?
-          OnSystem::BASE_OS_OPTIONS.each do |os|
-            os_values << if os == :macos
-              (current_os_is_macos ? current_os : newest_macos)
-            else
-              os
-            end
+          OnSystem::BASE_OS_OPTIONS.each do |system|
+            os_values << [systems.fetch(system), system]
           end
 
           # `depends_on arch:` may be scoped to an `on_os` block, so arch
@@ -276,12 +273,14 @@ module Homebrew
           # Architecture is only relevant if on_system blocks are present or
           # the cask uses `depends_on arch`, otherwise we default to ARM for
           # consistency.
-          os_values << (current_os_is_macos ? current_os : newest_macos)
+          os_values << [systems.fetch(:macos), :macos]
           depends_on_archs = cask.depends_on.arch&.filter_map { |arch| arch[:type] }&.uniq
           arch_values = depends_on_archs.presence || [:arm]
         end
 
-        os_values.product(arch_values)
+        os_values.product(arch_values).map do |(os, system), arch|
+          [os, arch, system, :general]
+        end
       end
 
       sig {
@@ -301,7 +300,7 @@ module Homebrew
         old_cask = Homebrew::SimulateSystem.with(os: default_cask_os, arch: :arm) do
           Cask::CaskLoader.load(cask_sourcefile_path)
         end
-        generate_system_options(cask, new_version).each do |os, arch|
+        generate_system_options(cask, new_version).each do |os, arch, system, version_type|
           tag = Utils::Bottles::Tag.new(system: os, arch:)
           old_cask.refresh_for_tag(tag) do
             next if tag.macos? && !old_cask.supports_macos?
@@ -314,13 +313,12 @@ module Homebrew
             old_version = old_cask.version
             next unless old_version
 
-            system = tag.macos? ? :macos : :linux
             next if [system, arch].any? do |scope|
               unsupported_nested_system_stanza?(contents, :version, scope) ||
               unsupported_nested_system_stanza?(contents, :sha256, scope)
             end
 
-            bump_version = new_version.public_send(tag.linux? ? :"linux_#{arch}" : arch) || new_version.general
+            bump_version = new_version.public_send(version_type)
             next unless bump_version
 
             version_scope = cask_stanza_scope(contents, :version, [system, arch])

@@ -4,7 +4,13 @@
 module Homebrew
   # Class handling platform-specific version information.
   class BumpVersionParser
-    VERSION_SYMBOLS = [:general, :arm, :intel, :linux_arm, :linux_intel].freeze
+    VERSION_PLATFORMS = T.let({
+      arm:         [:macos, :arm],
+      intel:       [:macos, :intel],
+      linux_arm:   [:linux, :arm],
+      linux_intel: [:linux, :intel],
+    }.freeze, T::Hash[Symbol, [Symbol, Symbol]])
+    VERSION_SYMBOLS = T.let([:general, *VERSION_PLATFORMS.keys].freeze, T::Array[Symbol])
     ParsedVersion = T.type_alias { T.nilable(T.any(Version, Cask::DSL::Version)) }
 
     sig { returns(ParsedVersion) }

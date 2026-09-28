@@ -252,7 +252,9 @@ module Homebrew
         # Only resolve every platform for casks that already resolve to one version per operating system.
         # Casks with a shared version resolve versions by architecture only.
         platform_specific = false
-        system_options = arch_options.map { |arch| [nil, arch] }
+        system_options = arch_options.map do |arch|
+          [nil, arch, is_cask_with_blocks ? arch : :general]
+        end
         if formula_or_cask.is_a?(Cask::Cask) && formula_or_cask.on_os_blocks_exist?
           sourcefile_path = formula_or_cask.sourcefile_path
           raise "unexpected nil sourcefile_path" unless sourcefile_path
@@ -263,47 +265,36 @@ module Homebrew
           else
             MacOSVersion.new(HOMEBREW_MACOS_NEWEST_SUPPORTED).to_sym
           end
+          systems = { macos:, linux: :linux }
           detected_versions = {}
-          [[macos, :intel], [macos, :arm], [:linux, :intel], [:linux, :arm]].each do |os, arch|
+          detected_system_options = BumpVersionParser::VERSION_PLATFORMS.filter_map do |version_type, (system, arch)|
+            os = systems.fetch(system)
+            tag = Utils::Bottles::Tag.new(system: os, arch:)
             SimulateSystem.with(os:, arch:) do
               loaded_cask = Cask::CaskLoader.load(sourcefile_path)
-              next if os == :linux && !loaded_cask.supports_linux?
-              next if os != :linux && !loaded_cask.supports_macos?
+              next if tag.macos? && !loaded_cask.supports_macos?
+              next if tag.linux? && !loaded_cask.supports_linux?
 
               supported_archs = loaded_cask.depends_on.arch&.filter_map { |dep| dep[:type] }&.uniq
               next if supported_archs.present? && supported_archs.exclude?(arch)
               next unless loaded_cask.version
 
-              version_key = (os == :linux) ? :"linux_#{arch}" : arch
-              detected_versions[version_key] = Version.new(loaded_cask.version)
+              detected_versions[version_type] = Version.new(loaded_cask.version)
+              [os, arch, version_type]
             end
           end
           macos_versions = detected_versions.values_at(:arm, :intel).compact.uniq
           linux_versions = detected_versions.values_at(:linux_arm, :linux_intel).compact.uniq
           if macos_versions.one? && linux_versions.one? && macos_versions != linux_versions
             platform_specific = true
-            system_options = detected_versions.keys.map do |type|
-              if type.to_s.start_with?("linux_")
-                [:linux, type.to_s.delete_prefix("linux_").to_sym]
-              else
-                [macos, type]
-              end
-            end
+            system_options = detected_system_options
           end
         end
 
-        system_options.each do |os, arch|
+        system_options.each do |os, arch, version_key|
           SimulateSystem.with(os:, arch:) do
-            version_key = if platform_specific
-              (os == :linux) ? :"linux_#{arch}" : arch
-            elsif is_cask_with_blocks
-              arch
-            else
-              :general
-            end
-
             # We reload the formula/cask here to ensure we're getting the
-            # correct version for the current arch
+            # correct version for the current platform
             if formula_or_cask.is_a?(Formula)
               loaded_formula_or_cask = formula_or_cask
               stable = loaded_formula_or_cask.stable
