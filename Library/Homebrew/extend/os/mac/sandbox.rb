@@ -52,6 +52,7 @@ module OS
             (global-name "com.apple.networkd")
             (global-name "com.apple.ocspd")
             (global-name "com.apple.trustd.agent")
+            (global-name "com.apple.TrustEvaluationAgent")
             (global-name "com.apple.SystemConfiguration.DNSConfiguration")
             (global-name "com.apple.SystemConfiguration.configd")
             )
