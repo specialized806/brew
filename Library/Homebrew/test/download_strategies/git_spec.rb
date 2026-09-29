@@ -116,7 +116,25 @@ RSpec.describe GitDownloadStrategy do
         "HOME"                => Dir.home(ENV.fetch("USER")),
         "PATH"                => "/path/to/shims:/usr/bin:/bin:/path/to/bin",
         "SSH_AUTH_SOCK"       => ENV.fetch("SSH_AUTH_SOCK"),
+        "SSH_ASKPASS"         => "/usr/bin/false",
+        "SSH_ASKPASS_REQUIRE" => "force",
       )
+    end
+
+    it "fails instead of waiting for an SSH key passphrase on the controlling terminal" do
+      allow(strategy).to receive(:fetching?).and_return(true)
+      key = mktmpdir/"id_ed25519"
+      SystemCommand.run!("ssh-keygen", args: ["-q", "-t", "ed25519", "-N", "test-passphrase", "-f", key])
+
+      PTY.spawn(strategy.env, "ssh-keygen", "-y", "-f", key.to_s) do |_reader, _writer, pid|
+        expect(Timeout.timeout(5) { Process.wait2(pid)&.last }).to have_attributes(success?: false)
+      ensure
+        begin
+          Process.kill("KILL", pid)
+        rescue Errno::ESRCH
+          nil
+        end
+      end
     end
 
     it "does not restore credentials during local inspection" do
