@@ -226,6 +226,14 @@ RSpec.describe Utils::Shell do
     expect(described_class.sh_single_quote("it's")).to eq("'it'\\''s'")
   end
 
+  specify "::fish_quote" do
+    expect(described_class.fish_quote("")).to eq("''")
+    expect(described_class.fish_quote("word")).to eq("'word'")
+    # Inside fish single quotes a quote and a backslash are both escaped.
+    expect(described_class.fish_quote("it's")).to eq("'it\\'s'")
+    expect(described_class.fish_quote("back\\slash")).to eq("'back\\\\slash'")
+  end
+
   specify "::pwsh_quote" do
     expect(described_class.pwsh_quote("")).to eq("''")
     expect(described_class.pwsh_quote("word")).to eq("'word'")
