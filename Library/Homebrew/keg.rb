@@ -288,15 +288,10 @@ class Keg
     opt_record.symlink? && path == resolved_path(opt_record)
   end
 
-  # `versioned_aliases` is the alias list from this keg's install receipt.
-  # `uninstall` has to pass it in: the receipt is deleted with the keg, and
-  # reading it afterwards looks like the keg had no aliases. That made cleanup
-  # remove names such as `ruby@4.0` even when they pointed at a newer keg.
   sig { params(versioned_aliases: T.nilable(T::Array[String])).void }
-  def remove_old_aliases(versioned_aliases: nil)
+  def remove_old_aliases(versioned_aliases: aliases)
     opt = opt_record.parent
     linkedkegs = linked_keg_record.parent
-    owned_versioned_aliases = versioned_aliases || aliases
 
     if (tap = tab.tap)
       bad_tap_opt = opt/tap.user
@@ -315,7 +310,7 @@ class Keg
       name = link.basename.to_s
       # Keep an alias this keg owns while its target is still installed.
       # A link that pointed at this keg is removed once that keg is gone.
-      next if owned_versioned_aliases.include?(name) && link.exist?
+      next if versioned_aliases.include?(name) && link.exist?
 
       remove_alias_symlink(link, rack, match_parent: true)
       remove_alias_symlink(linkedkegs/name, rack, match_parent: true)
@@ -338,13 +333,13 @@ class Keg
                                    CacheStoreDatabase[String, T::Hash[T.any(String, Symbol), T.anything]])).delete!
     end
 
-    # Capture this before `rm_r` deletes INSTALL_RECEIPT.json. See `remove_old_aliases`.
-    owned_versioned_aliases = aliases
+    # Capture these before we delete the Tab.
+    versioned_aliases = aliases
     FileUtils.rm_r(path)
     rmdir_if_possible(path.parent)
     remove_opt_record if optlinked?
     remove_linked_keg_record if linked?
-    remove_old_aliases(versioned_aliases: owned_versioned_aliases)
+    remove_old_aliases(versioned_aliases:)
     remove_oldname_opt_records
   rescue Errno::EACCES, Errno::ENOTEMPTY
     raise if raise_failures
