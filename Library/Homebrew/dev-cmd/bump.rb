@@ -267,11 +267,11 @@ module Homebrew
           end
           systems = { macos:, linux: :linux }
           detected_versions = {}
+          loaded_cask = Cask::CaskLoader.load(sourcefile_path)
           detected_system_options = BumpVersionParser::VERSION_PLATFORMS.filter_map do |version_type, (system, arch)|
             os = systems.fetch(system)
             tag = Utils::Bottles::Tag.new(system: os, arch:)
-            SimulateSystem.with(os:, arch:) do
-              loaded_cask = Cask::CaskLoader.load(sourcefile_path)
+            loaded_cask.refresh_for_tag(tag) do
               next if tag.macos? && !loaded_cask.supports_macos?
               next if tag.linux? && !loaded_cask.supports_linux?
 

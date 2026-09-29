@@ -525,6 +525,7 @@ RSpec.describe Homebrew::DevCmd::Bump do
       RUBY
     end
 
+    let(:newest_macos) { MacOSVersion.new(HOMEBREW_MACOS_NEWEST_SUPPORTED).to_sym }
     let(:c_per_os) do
       path = mktmpdir/"per_os_cask.rb"
       path.write <<~RUBY
@@ -551,8 +552,26 @@ RSpec.describe Homebrew::DevCmd::Bump do
           name "Foo"
         end
       RUBY
-      macos = MacOSVersion.new(HOMEBREW_MACOS_NEWEST_SUPPORTED).to_sym
-      Homebrew::SimulateSystem.with(os: macos, arch: :arm) { Cask::CaskLoader.load(path) }
+      Homebrew::SimulateSystem.with(os: newest_macos, arch: :arm) { Cask::CaskLoader.load(path) }
+    end
+
+    let(:c_macos_versions) do
+      path = mktmpdir/"macos_versions_cask.rb"
+      path.write <<~RUBY
+        cask "macos_versions_cask" do
+          on_monterey :or_newer do
+            version "1.2.3"
+            sha256 :no_check
+          end
+
+          url "https://brew.sh/foo-\#{version.dots_to_underscores}.zip"
+          name "Foo"
+          depends_on :macos
+
+          app "Foo.app"
+        end
+      RUBY
+      Homebrew::SimulateSystem.with(os: newest_macos, arch: :arm) { Cask::CaskLoader.load(path) }
     end
 
     it "resolves existing per-OS versions for each supported platform" do
@@ -612,6 +631,17 @@ RSpec.describe Homebrew::DevCmd::Bump do
         arm:   Version.new("2.1"),
         intel: Version.new("2.1"),
       })
+    end
+
+    it "resolves versions by architecture when a cask cannot be evaluated on Linux" do
+      allow(bump).to receive(:livecheck_result).and_return([Version.new("1.2.4"), nil])
+
+      version_info = Homebrew::SimulateSystem.with(os: newest_macos, arch: :arm) do
+        bump.retrieve_versions_by_arch(
+          formula_or_cask: c_macos_versions, repositories: [], name: "macos-versions-cask",
+        )
+      end
+      expect(version_info.new_version).to eq(Homebrew::BumpVersionParser.new(general: Version.new("1.2.4")))
     end
 
     it "simulates only arm and consolidates to a general version when `depends_on arch:` restricts to arm-only" do
