@@ -846,6 +846,56 @@ RSpec.describe Sandbox do
         .to contain_exactly((home/".aws").to_s)
     end
 
+    test_each(%w[.gitconfig .git-credentials .netrc]) do |path|
+      it "allows only the file targeted by a Git credential symlink at #{path}" do
+        (home/"Dropbox/dotfiles").mkpath
+        target = home/"Dropbox/dotfiles"/path
+        target.write("credential")
+        (home/path).make_symlink(target)
+
+        sandbox.deny_read_home(except: :git)
+
+        expect(sandbox.profile.rules.map do |rule|
+          [rule.allow, rule.operation, rule.filter&.path, rule.filter&.type]
+        end).to eq([
+          [false, "file-read*", (home/"Dropbox").realpath.to_s, :subpath],
+          [true, "file-read*", target.realpath.to_s, :literal],
+        ])
+      end
+    end
+
+    it "does not allow Git credential symlink targets without the Git exception" do
+      stub_const("HOMEBREW_CACHE", home/"cache")
+      (home/"Documents").mkpath
+      target = home/"Documents/gitconfig"
+      target.write("credential")
+      (home/".gitconfig").make_symlink(target)
+
+      sandbox.deny_read_home
+
+      expect(sandbox.profile.rules.map(&:allow)).to all(be(false))
+    end
+
+    test_each(%w[.ssh .gitconfig .config/gh]) do |path|
+      it "does not allow a Git credential symlink at #{path} to expose a directory" do
+        (home/"Documents").mkpath
+        (home/path).dirname.mkpath
+        (home/path).make_symlink(home/"Documents")
+
+        sandbox.deny_read_home(except: :git)
+
+        expect(sandbox.profile.rules.map(&:allow)).to all(be(false))
+      end
+    end
+
+    it "ignores broken Git credential symlinks" do
+      (home/".gitconfig").make_symlink(home/"missing")
+
+      sandbox.deny_read_home(except: :git)
+
+      expect(sandbox.profile.rules).to be_empty
+    end
+
     it "rejects unknown home credential exceptions" do
       expect { sandbox.deny_read_home(except: :aws) }
         .to raise_error(ArgumentError, "Unknown home credential exception: :aws")
