@@ -537,6 +537,12 @@ class Sandbox
       rescue Errno::ENOENT
         nil
       end
+      if except == :git
+        GIT_CREDENTIAL_PATHS.each do |path|
+          path = home/path
+          allow_read(path:) if path.symlink? && path.file?
+        end
+      end
       return
     end
 
