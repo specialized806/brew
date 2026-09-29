@@ -41,9 +41,13 @@ module Homebrew
         flag   "--version=",
                description: "Specify the new <version> for the cask."
         flag   "--version-arm=",
-               description: "Specify the new cask <version> for the ARM architecture."
+               description: "Specify the new cask <version> for macOS on ARM."
         flag   "--version-intel=",
-               description: "Specify the new cask <version> for the Intel architecture."
+               description: "Specify the new cask <version> for macOS on Intel."
+        flag   "--version-linux-arm=",
+               description: "Specify the new cask <version> for Linux on ARM."
+        flag   "--version-linux-intel=",
+               description: "Specify the new cask <version> for Linux on Intel."
         flag   "--message=",
                description: "Prepend <message> to the default pull request message."
         flag   "--url=",
@@ -56,6 +60,8 @@ module Homebrew
         conflicts "--dry-run", "--write"
         conflicts "--version", "--version-arm"
         conflicts "--version", "--version-intel"
+        conflicts "--version", "--version-linux-arm"
+        conflicts "--version", "--version-linux-intel"
 
         named_args :cask, number: 1, without_api: true
       end
@@ -106,9 +112,11 @@ module Homebrew
         end
 
         new_version = BumpVersionParser.new(
-          general: args.version,
-          intel:   args.version_intel,
-          arm:     args.version_arm,
+          general:     args.version,
+          intel:       args.version_intel,
+          arm:         args.version_arm,
+          linux_arm:   args.version_linux_arm,
+          linux_intel: args.version_linux_intel,
         )
 
         new_hash = unless (new_hash = args.sha256).nil?
@@ -153,7 +161,9 @@ module Homebrew
 
         if new_version.present?
           # For simplicity, our naming defers to the arm version if multiple architectures are specified
-          branch_version = new_version.arm || new_version.intel || new_version.general
+          branch_version = new_version.arm || new_version.intel ||
+                           new_version.linux_arm || new_version.linux_intel ||
+                           new_version.general
           if branch_version.is_a?(Cask::DSL::Version)
             commit_version = shortened_version(branch_version, cask:)
             branch_name = "bump-#{cask.token}-#{branch_version.tr(",:", "-")}"
@@ -221,11 +231,29 @@ module Homebrew
         end
       end
 
-      sig { params(cask: Cask::Cask, new_version: BumpVersionParser).returns(T::Array[[Symbol, Symbol]]) }
+      sig {
+        params(cask: Cask::Cask, new_version: BumpVersionParser).returns(T::Array[[Symbol, Symbol, Symbol, Symbol]])
+      }
       def generate_system_options(cask, new_version)
-        current_os = Homebrew::SimulateSystem.current_os
-        current_os_is_macos = MacOSVersion::SYMBOLS.include?(current_os)
-        newest_macos = MacOSVersion.new(HOMEBREW_MACOS_NEWEST_SUPPORTED).to_sym
+        systems = { macos: default_cask_os, linux: :linux }
+        system_versions = BumpVersionParser::VERSION_PLATFORMS.filter_map do |version_type, (system, arch)|
+          version = new_version.public_send(version_type)
+          next unless version
+
+          [systems.fetch(system), arch, system, version_type, version]
+        end
+        if system_versions.present?
+          # Sort platform-specific values in descending version order
+          # to avoid replacing a value that is still needed to identify another platform's stanza.
+          # For example, if ARM is 1.2.3, Intel moves to 1.2.3 and ARM moves to 1.2.4,
+          # processing Intel first could replace both 1.2.3 stanzas.
+          sorted_system_versions = system_versions.sort_by do |_, _, _, _, version|
+            Livecheck::LivecheckVersion.create(cask, Version.new(version))
+          end
+          return sorted_system_versions.reverse_each.map do |os, arch, system, version_type, _|
+            [os, arch, system, version_type]
+          end
+        end
 
         # NOTE: We substitute the newest macOS (e.g. `:sequoia`) in place of
         # `:macos` values (when used), as a generic `:macos` value won't apply
@@ -233,49 +261,26 @@ module Homebrew
         os_values = []
 
         arch_values = []
-        if new_version.arm || new_version.intel
-          arch_values << :arm if new_version.arm
-          arch_values << :intel if new_version.intel
-        end
-
         if cask.on_system_blocks_exist?
-          OnSystem::BASE_OS_OPTIONS.each do |os|
-            os_values << if os == :macos
-              (current_os_is_macos ? current_os : newest_macos)
-            else
-              os
-            end
+          OnSystem::BASE_OS_OPTIONS.each do |system|
+            os_values << [systems.fetch(system), system]
           end
 
           # `depends_on arch:` may be scoped to an `on_os` block, so arch
           # filtering is deferred to `replace_version_and_checksum`.
-          arch_values = OnSystem::ARCH_OPTIONS.dup if arch_values.empty?
+          arch_values = OnSystem::ARCH_OPTIONS.dup
         else
           # Architecture is only relevant if on_system blocks are present or
           # the cask uses `depends_on arch`, otherwise we default to ARM for
           # consistency.
-          os_values << (current_os_is_macos ? current_os : newest_macos)
-          if arch_values.empty?
-            depends_on_archs = cask.depends_on.arch&.filter_map { |arch| arch[:type] }&.uniq
-            arch_values = depends_on_archs.presence || [:arm]
-          end
+          os_values << [systems.fetch(:macos), :macos]
+          depends_on_archs = cask.depends_on.arch&.filter_map { |arch| arch[:type] }&.uniq
+          arch_values = depends_on_archs.presence || [:arm]
         end
 
-        if arch_values.length > 1 && !new_version.general
-          # We sort arch values in descending order by version to mitigate the
-          # issue where updating multiple arch-specific versions can lead to
-          # incorrect version changes in the cask (e.g. ARM is version 1.2.3,
-          # Intel is updated to 1.2.3, ARM is updated to 1.2.4 and this
-          # incorrectly replaces the 1.2.3 version for both archs). This is
-          # something that should be handled by better version replacement logic
-          # but this is a workaround for now.
-          arch_values = arch_values.sort_by do |type|
-            new_version_value = Version.new(new_version.public_send(type) || "0")
-            Livecheck::LivecheckVersion.create(cask, new_version_value)
-          end.reverse
+        os_values.product(arch_values).map do |(os, system), arch|
+          [os, arch, system, :general]
         end
-
-        os_values.product(arch_values)
       end
 
       sig {
@@ -290,12 +295,12 @@ module Homebrew
         cask_sourcefile_path = cask.sourcefile_path
         raise "unexpected nil cask.sourcefile_path" unless cask_sourcefile_path
 
-        contents = split_root_version_and_checksum(new_version, contents)
+        contents = split_root_version_and_checksum(cask, new_version, contents)
 
         old_cask = Homebrew::SimulateSystem.with(os: default_cask_os, arch: :arm) do
           Cask::CaskLoader.load(cask_sourcefile_path)
         end
-        generate_system_options(cask, new_version).each do |os, arch|
+        generate_system_options(cask, new_version).each do |os, arch, system, version_type|
           tag = Utils::Bottles::Tag.new(system: os, arch:)
           old_cask.refresh_for_tag(tag) do
             next if tag.macos? && !old_cask.supports_macos?
@@ -308,13 +313,24 @@ module Homebrew
             old_version = old_cask.version
             next unless old_version
 
-            next if unsupported_nested_arch_stanza?(contents, :version, arch) ||
-                    unsupported_nested_arch_stanza?(contents, :sha256, arch)
+            next if [system, arch].any? do |scope|
+              unsupported_nested_system_stanza?(contents, :version, scope) ||
+              unsupported_nested_system_stanza?(contents, :sha256, scope)
+            end
 
-            bump_version = new_version.public_send(arch) || new_version.general
+            bump_version = new_version.public_send(version_type)
             next unless bump_version
 
-            version_scope = cask_stanza_scope(contents, :version, arch)
+            version_scope = cask_stanza_scope(contents, :version, [system, arch])
+            if version_scope == :"on_#{arch}" && new_version.general.nil? &&
+               cask.on_os_blocks_exist? && cask.supports_macos? && cask.supports_linux?
+              raise Cask::CaskError,
+                    "Cannot update one platform because its `version` stanza is shared across operating systems."
+            end
+            if version_scope.nil? && new_version.general.nil?
+              raise Cask::CaskError,
+                    "Platform-specific bumps require existing platform-scoped `version` stanzas."
+            end
             contents = replace_cask_stanza_value(
               contents, :version,
               old_version.latest? ? :latest : old_version.to_s,
@@ -332,7 +348,7 @@ module Homebrew
             end
             next if new_hash.is_a?(String) && old_hash.to_s == new_hash
 
-            checksum_scope = cask_stanza_scope(contents, :sha256, arch)
+            checksum_scope = cask_stanza_scope(contents, :sha256, [system, arch])
             if tmp_cask.version.latest? || new_hash == :no_check
               opoo "Ignoring specified `--sha256=` argument." if new_hash.is_a?(String)
               if old_hash != :no_check
@@ -412,7 +428,9 @@ module Homebrew
         throttle_days = cask.livecheck.throttle_days
         return if throttle_rate.nil? && throttle_days.nil?
 
-        version = new_version.arm || new_version.intel || new_version.general
+        version = new_version.arm || new_version.intel ||
+                  new_version.linux_arm || new_version.linux_intel ||
+                  new_version.general
         return unless version.is_a?(Cask::DSL::Version)
 
         return if Livecheck.throttle_allows_bump?(cask, version.to_s, throttle_rate:, throttle_days:)
@@ -437,15 +455,20 @@ module Homebrew
 
       sig {
         params(
+          cask:        Cask::Cask,
           new_version: BumpVersionParser,
           contents:    String,
         ).returns(String)
       }
-      def split_root_version_and_checksum(new_version, contents)
+      def split_root_version_and_checksum(cask, new_version, contents)
         return contents unless arch_specific_version_bump?(new_version)
 
         cask_ast = Utils::AST::CaskAST.new(contents)
         root_version = cask_ast.first_stanza_value(:version, within: :root)
+        if root_version && cask.on_os_blocks_exist? && cask.supports_linux?
+          raise Cask::CaskError,
+                "Platform-specific bumps require existing platform-scoped `version` stanzas."
+        end
         if root_version &&
            !cask_ast.stanza_anywhere?(:version, within: :on_arm) &&
            !cask_ast.stanza_anywhere?(:version, within: :on_intel)
@@ -478,18 +501,21 @@ module Homebrew
         MacOSVersion.new(HOMEBREW_MACOS_NEWEST_SUPPORTED).to_sym
       end
 
-      sig { params(contents: String, name: Symbol, arch: Symbol).returns(T::Boolean) }
-      def unsupported_nested_arch_stanza?(contents, name, arch)
+      sig { params(contents: String, name: Symbol, system: Symbol).returns(T::Boolean) }
+      def unsupported_nested_system_stanza?(contents, name, system)
         cask_ast = Utils::AST::CaskAST.new(contents)
-        scope = :"on_#{arch}"
+        scope = :"on_#{system}"
 
         cask_ast.stanza_anywhere?(name, within: scope) && !cask_ast.stanza?(name, within: scope)
       end
 
-      sig { params(contents: String, name: Symbol, arch: Symbol).returns(T.nilable(Symbol)) }
-      def cask_stanza_scope(contents, name, arch)
-        scope = :"on_#{arch}"
-        return scope if Utils::AST::CaskAST.new(contents).stanza?(name, within: scope)
+      sig { params(contents: String, name: Symbol, systems: T::Array[Symbol]).returns(T.nilable(Symbol)) }
+      def cask_stanza_scope(contents, name, systems)
+        cask_ast = Utils::AST::CaskAST.new(contents)
+        systems.each do |system|
+          scope = :"on_#{system}"
+          return scope if cask_ast.stanza?(name, within: scope)
+        end
 
         nil
       end
