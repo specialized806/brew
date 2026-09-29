@@ -209,6 +209,12 @@ RSpec.describe Utils::Shell do
       expect(described_class.set_variable_in_profile("HOMEBREW_FOO", "a b"))
         .to eq("echo 'HOMEBREW_FOO=(''a b'')' >> #{described_class.profile}")
     end
+
+    it "keeps the fish echo runnable when the value contains a single quote" do
+      ENV["SHELL"] = "/usr/local/bin/fish"
+      expect(described_class.set_variable_in_profile("HOMEBREW_FOO", "it's"))
+        .to eq("echo 'set -gx HOMEBREW_FOO it\\\\\\'s' >> #{described_class.profile}")
+    end
   end
 
   specify "::sh_single_quote" do
@@ -218,6 +224,14 @@ RSpec.describe Utils::Shell do
     expect(described_class.sh_single_quote("a $b `c`")).to eq("'a $b `c`'")
     # An embedded single quote closes the string, is escaped, and reopens it.
     expect(described_class.sh_single_quote("it's")).to eq("'it'\\''s'")
+  end
+
+  specify "::fish_quote" do
+    expect(described_class.fish_quote("")).to eq("''")
+    expect(described_class.fish_quote("word")).to eq("'word'")
+    # Inside fish single quotes a quote and a backslash are both escaped.
+    expect(described_class.fish_quote("it's")).to eq("'it\\'s'")
+    expect(described_class.fish_quote("back\\slash")).to eq("'back\\\\slash'")
   end
 
   specify "::pwsh_quote" do
