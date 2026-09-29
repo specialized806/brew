@@ -288,7 +288,7 @@ class Keg
     opt_record.symlink? && path == resolved_path(opt_record)
   end
 
-  sig { params(versioned_aliases: T.nilable(T::Array[String])).void }
+  sig { params(versioned_aliases: T::Array[String]).void }
   def remove_old_aliases(versioned_aliases: aliases)
     opt = opt_record.parent
     linkedkegs = linked_keg_record.parent
