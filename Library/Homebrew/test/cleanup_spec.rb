@@ -162,11 +162,14 @@ RSpec.describe Homebrew::Cleanup do
     end
 
     it "doesn't remove the lock file if it is locked" do
-      lock_file.open(File::RDWR | File::CREAT).flock(File::LOCK_EX | File::LOCK_NB)
+      lock_file.open(File::RDWR | File::CREAT) do |file|
+        file.flock(File::LOCK_EX | File::LOCK_NB)
+        GC.start
 
-      cleanup.clean!
+        cleanup.clean!
 
-      expect(lock_file).to exist
+        expect(lock_file).to exist
+      end
     end
 
     it "cleans up unreferenced downloads once, however many formulae are installed" do

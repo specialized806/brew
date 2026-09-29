@@ -87,10 +87,11 @@ RSpec.describe Bottle do
     it "verifies a cached bottle against its checksum and refetches on mismatch", :aggregate_failures do
       valid_content = "valid"
       bottle_spec = BottleSpecification.new
-      bottle_spec.root_url("https://example.com")
+      bottle_spec.root_url(HOMEBREW_BOTTLE_DEFAULT_DOMAIN)
       bottle_spec.sha256(cellar: :any_skip_relocation, arm64_big_sur: Digest::SHA256.hexdigest(valid_content))
       bottle = described_class.new(nil, bottle_spec, Utils::Bottles::Tag.from_symbol(:arm64_big_sur),
                                    name: "foo", pkg_version: PkgVersion.new(Version.new("1.2.3"), 0))
+      expect(bottle.downloader).not_to receive(:curl_headers)
       bottle.cached_download.dirname.mkpath
       bottle.cached_download.write("corrupt")
       allow(UnpackStrategy).to receive(:detect)
@@ -107,11 +108,12 @@ RSpec.describe Bottle do
     it "removes the cached bottle when the refetched download also fails verification", :aggregate_failures do
       valid_content = "valid"
       bottle_spec = BottleSpecification.new
-      bottle_spec.root_url("https://example.com")
+      bottle_spec.root_url(HOMEBREW_BOTTLE_DEFAULT_DOMAIN)
       expected_checksum = Checksum.new(Digest::SHA256.hexdigest(valid_content))
       bottle_spec.sha256(cellar: :any_skip_relocation, arm64_big_sur: expected_checksum.hexdigest)
       bottle = described_class.new(nil, bottle_spec, Utils::Bottles::Tag.from_symbol(:arm64_big_sur),
                                    name: "foo", pkg_version: PkgVersion.new(Version.new("1.2.3"), 0))
+      expect(bottle.downloader).not_to receive(:curl_headers)
       bottle.cached_download.dirname.mkpath
       bottle.cached_download.write("corrupt")
       expect(bottle).to receive(:fetch) do
