@@ -338,9 +338,11 @@ module Homebrew
           end
           commit_formula.path.atomic_write(new_contents) unless args.dry_run?
 
+          formula_checkboxes = []
+
           if Utils::AST::FormulaAST.new(new_contents).contains_call?(:patch)
             opoo "This formula has patches that may be resolved upstream."
-            formula_pr_message += "\n\n- [ ] `patch` blocks have been checked."
+            formula_checkboxes << "- [ ] `patch` blocks have been checked."
           end
 
           alias_rename = alias_update_pair(commit_formula, new_formula_version)
@@ -386,8 +388,6 @@ module Homebrew
 
             true
           end
-
-          formula_checkboxes = []
 
           if failed_updates.any? || (!resources_checked && unchecked_resources.any?)
             formula_checkboxes << "- [ ] `resource` blocks have been checked for updates."
