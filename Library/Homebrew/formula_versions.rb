@@ -92,12 +92,135 @@ class FormulaVersions
       super(converted)
     end
 
+    sig { params(_value: String).void }
+    def prefix(_value); end
+
     sig { params(_value: Integer).void }
     def revision(_value); end
 
     sig { params(value: T.any(Symbol, String)).returns(T.any(Symbol, String)) }
     def cellar(value)
       @legacy_cellar = value
+    end
+  end
+
+  # Resolve historical macOS conditionals using the target, never the worker host.
+  class LegacyMacOSVersion < Version
+    RELEASES = T.let(MacOSVersion::RELEASES.merge(
+      yosemite: "10.10", mavericks: "10.9", mountain_lion: "10.8", lion: "10.7",
+      snow_leopard: "10.6", leopard: "10.5", tiger: "10.4"
+    ).freeze, T::Hash[Symbol, String])
+
+    sig { override.params(other: T.untyped).returns(T.nilable(Integer)) }
+    def <=>(other)
+      super(release_operand(other))
+    end
+
+    # `Version#==` answers `NULL` without calling `<=>`, so validate here too.
+    sig { override.params(other: T.anything).returns(T::Boolean) }
+    def ==(other)
+      super(release_operand(other))
+    end
+    alias eql? ==
+
+    sig { returns(Symbol) }
+    def to_sym
+      RELEASES.key(to_s) || raise(FormulaSpecificationError, "Historical Linux MacOS.version has no release name")
+    end
+
+    # Linux answered historical macOS queries as older than every release
+    # from February 2018 until September 2024.
+    NULL = T.let(new("NULL").tap { |v| v.instance_variable_set(:@version, nil) }.freeze, LegacyMacOSVersion)
+
+    private
+
+    sig { params(other: T.anything).returns(T.anything) }
+    def release_operand(other)
+      case other
+      when Symbol
+        RELEASES.fetch(other) do
+          raise FormulaSpecificationError, "Unknown historical macOS release: #{other.inspect}"
+        end
+      when Float
+        raise FormulaSpecificationError, "Unsupported historical macOS version comparison: #{other.inspect}"
+      else
+        other
+      end
+    end
+  end
+
+  # Historical Linux answers for `MacOS::Xcode` and `MacOS::CLT`.
+  module LegacyLinuxDeveloperTools
+    sig { returns(Version) }
+    def self.version = Version::NULL
+
+    sig { returns(T::Boolean) }
+    def self.installed? = false
+  end
+
+  # Advisory history walks answer `MacOS` from the simulated target, even when
+  # it matches the host, and hold host-only queries. Other callers keep the
+  # host `MacOS` API.
+  module LegacyMacOS
+    LINUX_ANSWERS = T.let({
+      full_version:       LegacyMacOSVersion::NULL,
+      sdk_root_needed?:   false,
+      sdk_path_if_needed: nil,
+      sdk_path:           nil,
+    }.freeze, T::Hash[Symbol, T.nilable(T.any(LegacyMacOSVersion, T::Boolean))])
+
+    @simulated_target = T.let(false, T::Boolean)
+
+    class << self
+      sig { returns(T::Boolean) }
+      attr_accessor :simulated_target
+
+      sig { returns(T.any(LegacyMacOSVersion, MacOSVersion)) }
+      def version
+        simulated_target ? target_version : ::MacOS.version
+      end
+
+      sig { returns(LegacyMacOSVersion) }
+      def target_version
+        target = Homebrew::SimulateSystem.current_os
+        return LegacyMacOSVersion::NULL if target == :linux
+
+        LegacyMacOSVersion.new(LegacyMacOSVersion::RELEASES.fetch(target) do
+          raise FormulaSpecificationError, "historical MacOS.version requires a concrete macOS target"
+        end)
+      end
+
+      sig {
+        params(name: Symbol, args: T.anything, kwargs: T.anything, block: T.nilable(Proc)).returns(T.anything)
+      }
+      def method_missing(name, *args, **kwargs, &block)
+        return ::MacOS.public_send(name, *args, **kwargs, &block) unless simulated_target
+        if Homebrew::SimulateSystem.current_os == :linux && LINUX_ANSWERS.key?(name)
+          return LINUX_ANSWERS.fetch(name)
+        end
+
+        raise FormulaSpecificationError, "historical MacOS.#{name} has no simulated target answer"
+      end
+
+      sig { params(name: Symbol, include_private: T::Boolean).returns(T::Boolean) }
+      def respond_to_missing?(name, include_private = false)
+        return ::MacOS.respond_to?(name, include_private) unless simulated_target
+
+        Homebrew::SimulateSystem.current_os == :linux && LINUX_ANSWERS.key?(name)
+      end
+
+      sig { params(name: Symbol).returns(T.anything) }
+      def const_missing(name)
+        # Host callers keep constants such as `MacOS::CLT::PKG_PATH`.
+        # rubocop:disable Sorbet/ConstantsFromStrings
+        return ::MacOS.const_get(name, false) unless simulated_target
+        # rubocop:enable Sorbet/ConstantsFromStrings
+        if Homebrew::SimulateSystem.current_os == :linux && [:Xcode, :CLT].include?(name)
+          return LegacyLinuxDeveloperTools
+        end
+
+        raise FormulaSpecificationError, "historical MacOS::#{name} has no simulated target answer"
+      end
     end
   end
 
@@ -108,7 +231,63 @@ class FormulaVersions
     @legacy_formula_class ||= Class.new(Formula) do
       extend LegacyChecksums
 
+      const_set(:MacOS, LegacyMacOS)
+      const_set(:StrictSubversionDownloadStrategy, SubversionDownloadStrategy)
+
       class << self
+        define_method(:on_system) do |linux, macos:, &block|
+          T.bind(self, T.class_of(Formula))
+          # `Ignorable` resumes after the modern `ArgumentError`s, so reject
+          # invalid historical arguments before delegating.
+          raise FormulaSpecificationError, "The first argument to `on_system` must be `:linux`" if linux != :linux
+
+          version, condition = macos.to_s.split(/_(?=or_)/).map(&:to_sym)
+          if condition && [:or_older, :or_newer].exclude?(condition)
+            raise FormulaSpecificationError, "Invalid OS condition: #{condition.inspect}"
+          end
+          unless LegacyMacOSVersion::RELEASES.key?(version)
+            raise FormulaSpecificationError, "Unknown historical macOS release: #{version.inspect}"
+          end
+          next super(linux, macos:, &block) if MacOSVersion::SYMBOLS.key?(version)
+
+          if Homebrew::SimulateSystem.current_os == :linux
+            on_linux(&block)
+          else
+            on_macos do
+              target = LegacyMacOS.target_version
+              matches = case condition
+              when :or_older then target <= version
+              when :or_newer then target >= version
+              else target == version
+              end
+              block.call if matches
+            end
+          end
+        end
+        define_method(:build) do
+          options = super()
+          options.singleton_class.class_eval { public :include? }
+          options
+        end
+        # From April 2020 to June 2021 `date:` and `because:` were optional and
+        # an undated call took effect immediately.
+        define_method(:deprecate!) do |date: nil, because: nil, **options|
+          next super(date:, because:, **options) if date
+
+          raise FormulaSpecificationError, "Undated `deprecate!` cannot name a replacement" if options.present?
+
+          instance_variable_set(:@deprecation_reason, because)
+          instance_variable_set(:@deprecated, true)
+        end
+        define_method(:disable!) do |date: nil, because: nil, **options|
+          next super(date:, because:, **options) if date
+
+          raise FormulaSpecificationError, "Undated `disable!` cannot name a replacement" if options.present?
+
+          instance_variable_set(:@disable_reason, because)
+          instance_variable_set(:@disabled, true)
+        end
+        define_method(:cxxstdlib_check) { |_value| nil }
         define_method(:devel) { nil }
         define_method(:plist_options) { |**_options| nil }
         # Historical option checks must fail the load, not exit the consumer.
@@ -136,8 +315,11 @@ class FormulaVersions
     ErrorDuringExecution, LoadError, MethodDeprecatedError
   ].freeze
 
-  sig { params(formula: Formula).void }
-  def initialize(formula)
+  # With `simulated_target`, historical `MacOS` queries answer only from
+  # {Homebrew::SimulateSystem}'s target.
+  sig { params(formula: Formula, simulated_target: T::Boolean).void }
+  def initialize(formula, simulated_target: false)
+    @simulated_target = simulated_target
     @name = T.let(formula.name, String)
     @path = T.let(formula.tap_path, Pathname)
     @repository = T.let(formula.tap!.path, Pathname)
@@ -181,6 +363,7 @@ class FormulaVersions
   def formula_at_revision(revision, formula_relative_path = relative_path, &_block)
     @load_error = nil
     Homebrew.raise_deprecation_exceptions = true
+    LegacyMacOS.simulated_target = @simulated_target
 
     # rev_list visits the current path first. At a sharding rename, the old
     # path is absent in the same commit; reuse the already-loaded new path.
@@ -191,7 +374,7 @@ class FormulaVersions
           path,
           file_contents_at_revision(revision, formula_relative_path)
             .sub(/\A(?:(?:[ \t]*#[^\n]*\n|[ \t]*\n)|(?:=begin[^\n]*(?:\n|\z).*?^=end[^\n]*(?:\n|\z)))*/m) do |header|
-              "#{header}Formula = ::FormulaVersions.legacy_formula_class;"
+              "#{header}Formula = ScriptFileFormula = ::FormulaVersions.legacy_formula_class;"
             end,
           ignore_errors: true,
         )
@@ -219,6 +402,7 @@ class FormulaVersions
     yield formula
   ensure
     Homebrew.raise_deprecation_exceptions = false
+    LegacyMacOS.simulated_target = false
   end
 
   # Only a successful tree lookup proves absence; a failed Git command must

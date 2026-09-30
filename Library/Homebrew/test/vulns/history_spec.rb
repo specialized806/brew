@@ -186,7 +186,7 @@ RSpec.describe Homebrew::Vulns::History do
 
   it "keeps revision lists separate for formulae in the same tap" do
     other_versions = instance_double(FormulaVersions)
-    allow(FormulaVersions).to receive(:new).with(other).and_return(other_versions)
+    allow(FormulaVersions).to receive(:new).with(other, simulated_target: true).and_return(other_versions)
     allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
     allow(formula_versions).to receive(:formula_at_revision).and_yield(requests)
     expect(other_versions).to receive(:rev_list).once.and_yield("r1", "Formula/o/other.rb")
@@ -220,7 +220,7 @@ RSpec.describe Homebrew::Vulns::History do
   it "does not reuse historical formula loads across platforms" do
     allow(formula_versions).to receive(:rev_list).and_yield("r0", "Formula/r/requests.rb")
     allow(formula_versions).to receive(:formula_at_revision).and_yield(requests)
-    expect(FormulaVersions).to receive(:new).with(requests).twice.and_return(formula_versions)
+    expect(FormulaVersions).to receive(:new).with(requests, simulated_target: true).twice.and_return(formula_versions)
 
     Homebrew::SimulateSystem.with(os: :linux, arch: :arm) { history.walk(requests) { nil } }
     Homebrew::SimulateSystem.with(os: :linux, arch: :intel) { history.walk(requests) { nil } }
