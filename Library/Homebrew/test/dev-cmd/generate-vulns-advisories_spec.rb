@@ -121,7 +121,7 @@ RSpec.describe Homebrew::DevCmd::GenerateVulnsAdvisories do
 
     def with_history(revisions)
       fv = instance_double(FormulaVersions, load_error: nil)
-      allow(FormulaVersions).to receive(:new).with(current).and_return(fv)
+      allow(FormulaVersions).to receive(:new).with(current, simulated_target: true).and_return(fv)
       allow(fv).to receive(:rev_list).with("HEAD", all_history: false) do |&blk|
         revisions.each_key { |rev| blk.call(rev, "Formula/x/x.rb") }
       end

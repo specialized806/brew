@@ -58,7 +58,7 @@ module Homebrew
 
         tap_path = formula.tap_path.to_s
         fv = @formula_versions["#{tap_path}:#{SimulateSystem.current_os}:#{SimulateSystem.current_arch}"] ||=
-          FormulaVersions.new(formula)
+          FormulaVersions.new(formula, simulated_target: true)
         begin
           revs = @rev_lists["#{tap_path}:#{complete}"] ||=
             [].tap { |a| fv.rev_list("HEAD", all_history: complete) { |rev, entry| a << [rev, entry] } }
